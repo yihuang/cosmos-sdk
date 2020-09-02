@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/std"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authclient "github.com/cosmos/cosmos-sdk/x/auth/client"
@@ -269,7 +270,8 @@ func makeSignCmd() func(cmd *cobra.Command, args []string) error {
 		var json []byte
 
 		if aminoJSON {
-			fmt.Println("print amino2")
+
+			std.RegisterCodec(clientCtx.LegacyAmino)
 			json, err = marshalAminoJSON(clientCtx.LegacyAmino, txBuilder.GetTx())
 			if err != nil {
 				return err
