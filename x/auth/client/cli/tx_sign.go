@@ -269,8 +269,8 @@ func makeSignCmd() func(cmd *cobra.Command, args []string) error {
 
 		if aminoJSON {
 			fmt.Println("print amino")
-			fmt.Println(txBuilder.GetTx())
-			json, err = clientCtx.LegacyAmino.MarshalJSON(txBuilder.GetTx())
+			fmt.Println(txBuilder.GetTx().(sdk.Tx))
+			json, err = clientCtx.LegacyAmino.MarshalJSON((txBuilder.GetTx().(sdk.Tx)))
 			if err != nil {
 				return err
 			}
