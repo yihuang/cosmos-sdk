@@ -15,6 +15,13 @@ func (s *IntegrationTestSuite) TestTotalSupplyGRPCHandler() {
 	val := s.network.Validators[0]
 	baseURL := val.APIAddress
 
+	s.Run("test swagger", func() {
+		resp, err := testutil.GetRequestWithHeaders(fmt.Sprintf("%s/swagger", baseURL), nil)
+		s.Require().NoError(err)
+
+		fmt.Println("swagger response:::", string(resp))
+	})
+
 	testCases := []struct {
 		name     string
 		url      string
