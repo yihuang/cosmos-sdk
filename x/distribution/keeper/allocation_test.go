@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/simapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/cosmos/cosmos-sdk/x/staking/teststaking"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
@@ -19,11 +20,11 @@ func TestAllocateTokensToValidatorWithCommission(t *testing.T) {
 
 	addrs := simapp.AddTestAddrs(app, ctx, 3, sdk.NewInt(1234))
 	valAddrs := simapp.ConvertAddrsToValAddrs(addrs)
-	sk := NewHandlerT(ctx, app.StakingKeeper)
+	sh := teststaking.NewService(ctx, app.StakingKeeper)
 
 	// create validator with 50% commission
 	commission := stakingtypes.NewCommissionRates(sdk.NewDecWithPrec(5, 1), sdk.NewDecWithPrec(5, 1), sdk.NewDec(0))
-	sk.CreateValidator(t, sdk.ValAddress(addrs[0]), valConsPk1, 100, commission)
+	sh.CreateValidator(t, sdk.ValAddress(addrs[0]), valConsPk1, 100, commission)
 	val := app.StakingKeeper.Validator(ctx, valAddrs[0])
 
 	// allocate tokens
@@ -48,15 +49,15 @@ func TestAllocateTokensToManyValidators(t *testing.T) {
 
 	addrs := simapp.AddTestAddrs(app, ctx, 2, sdk.NewInt(1234))
 	valAddrs := simapp.ConvertAddrsToValAddrs(addrs)
-	sk := NewHandlerT(ctx, app.StakingKeeper)
+	sh := teststaking.NewService(ctx, app.StakingKeeper)
 
 	// create validator with 50% commission
 	commission := stakingtypes.NewCommissionRates(sdk.NewDecWithPrec(5, 1), sdk.NewDecWithPrec(5, 1), sdk.NewDec(0))
-	sk.CreateValidator(t, valAddrs[0], valConsPk1, 100, commission)
+	sh.CreateValidator(t, valAddrs[0], valConsPk1, 100, commission)
 
 	// create second validator with 0% commission
 	commission = stakingtypes.NewCommissionRates(sdk.NewDec(0), sdk.NewDec(0), sdk.NewDec(0))
-	sk.CreateValidator(t, valAddrs[1], valConsPk2, 100, commission)
+	sh.CreateValidator(t, valAddrs[1], valConsPk2, 100, commission)
 
 	abciValA := abci.Validator{
 		Address: valConsPk1.Address(),
@@ -118,19 +119,19 @@ func TestAllocateTokensTruncation(t *testing.T) {
 
 	addrs := simapp.AddTestAddrs(app, ctx, 3, sdk.NewInt(1234))
 	valAddrs := simapp.ConvertAddrsToValAddrs(addrs)
-	sk := NewHandlerT(ctx, app.StakingKeeper)
+	sh := teststaking.NewService(ctx, app.StakingKeeper)
 
 	// create validator with 10% commission
 	commission := stakingtypes.NewCommissionRates(sdk.NewDecWithPrec(1, 1), sdk.NewDecWithPrec(1, 1), sdk.NewDec(0))
-	sk.CreateValidator(t, valAddrs[0], valConsPk1, 110, commission)
+	sh.CreateValidator(t, valAddrs[0], valConsPk1, 110, commission)
 
 	// create second validator with 10% commission
 	commission = stakingtypes.NewCommissionRates(sdk.NewDecWithPrec(1, 1), sdk.NewDecWithPrec(1, 1), sdk.NewDec(0))
-	sk.CreateValidator(t, valAddrs[1], valConsPk2, 100, commission)
+	sh.CreateValidator(t, valAddrs[1], valConsPk2, 100, commission)
 
 	// create third validator with 10% commission
 	commission = stakingtypes.NewCommissionRates(sdk.NewDecWithPrec(1, 1), sdk.NewDecWithPrec(1, 1), sdk.NewDec(0))
-	sk.CreateValidator(t, valAddrs[2], valConsPk3, 100, commission)
+	sh.CreateValidator(t, valAddrs[2], valConsPk3, 100, commission)
 
 	abciValA := abci.Validator{
 		Address: valConsPk1.Address(),

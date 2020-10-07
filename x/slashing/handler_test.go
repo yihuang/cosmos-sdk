@@ -18,6 +18,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 	"github.com/cosmos/cosmos-sdk/x/slashing/types"
 	"github.com/cosmos/cosmos-sdk/x/staking"
+	"github.com/cosmos/cosmos-sdk/x/staking/teststaking"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
@@ -59,6 +60,7 @@ func TestCannotUnjailUnlessMeetMinSelfDelegation(t *testing.T) {
 	ctx := app.BaseApp.NewContext(false, tmproto.Header{})
 	pks := simapp.CreateTestPubKeys(1)
 	simapp.AddTestAddrsFromPubKeys(app, ctx, pks, sdk.TokensFromConsensusPower(200))
+	ss := teststaking.NewHandlerT(ctx, app.StakingKeeper)
 
 	slh := slashing.NewHandler(app.SlashingKeeper)
 	amtInt := int64(100)

@@ -3,7 +3,6 @@ package types
 import (
 	"bytes"
 
-	proto "github.com/gogo/protobuf/proto"
 	"github.com/tendermint/tendermint/crypto"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -34,20 +33,15 @@ func NewMsgCreateValidator(
 	valAddr sdk.ValAddress, pubKey crypto.PubKey, selfDelegation sdk.Coin,
 	description Description, commission CommissionRates, minSelfDelegation sdk.Int,
 ) (*MsgCreateValidator, error) {
-	protoMsg, ok := pubKey.(proto.Message)
-	if !ok {
-		return nil, sdkerrors.ErrInvalidPubKey
-	}
-	pubKeyAny, err := codectypes.NewAnyWithValue(protoMsg)
+	pkAny, err := codectypes.PackAny(pubKey)
 	if err != nil {
 		return nil, err
 	}
-
 	return &MsgCreateValidator{
 		Description:       description,
 		DelegatorAddress:  sdk.AccAddress(valAddr).String(),
 		ValidatorAddress:  valAddr.String(),
-		Pubkey:            pubKeyAny,
+		Pubkey:            pkAny,
 		Value:             selfDelegation,
 		Commission:        commission,
 		MinSelfDelegation: minSelfDelegation,

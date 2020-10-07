@@ -14,6 +14,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/cosmos/cosmos-sdk/x/distribution/types"
 	"github.com/cosmos/cosmos-sdk/x/staking"
+	"github.com/cosmos/cosmos-sdk/x/staking/teststaking"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
@@ -340,9 +341,9 @@ func (suite *KeeperTestSuite) TestGRPCValidatorSlashes() {
 func (suite *KeeperTestSuite) TestGRPCDelegationRewards() {
 	app, ctx, addrs, valAddrs := suite.app, suite.ctx, suite.addrs, suite.valAddrs
 
-	sk := NewHandlerT(ctx, app.StakingKeeper)
+	sh := teststaking.NewService(ctx, app.StakingKeeper)
 	comm := stakingtypes.NewCommissionRates(sdk.NewDecWithPrec(5, 1), sdk.NewDecWithPrec(5, 1), sdk.NewDec(0))
-	sk.CreateValidator(suite.T(), valAddrs[0], valConsPk1, 100, comm)
+	sh.CreateValidator(suite.T(), valAddrs[0], valConsPk1, 100, comm)
 
 	staking.EndBlocker(ctx, app.StakingKeeper)
 	ctx = ctx.WithBlockHeight(ctx.BlockHeight() + 1)
