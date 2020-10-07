@@ -169,15 +169,9 @@ func TestQueries(t *testing.T) {
 	require.Equal(t, []types.ValidatorSlashEvent{slashOne, slashTwo}, slashes)
 
 	// test delegation rewards query
-	sh := staking.NewHandler(app.StakingKeeper)
+	sk := NewHandlerT(ctx, app.StakingKeeper)
 	comm := stakingtypes.NewCommissionRates(sdk.NewDecWithPrec(5, 1), sdk.NewDecWithPrec(5, 1), sdk.NewDec(0))
-	msg := stakingtypes.NewMsgCreateValidator(
-		valOpAddr1, valConsPk1, sdk.NewCoin(sdk.DefaultBondDenom, sdk.NewInt(100)), stakingtypes.Description{}, comm, sdk.OneInt(),
-	)
-
-	res, err := sh(ctx, msg)
-	require.NoError(t, err)
-	require.NotNil(t, res)
+	sk.CreateValidator(t, valOpAddr1, valConsPk1, 100, comm)
 
 	staking.EndBlocker(ctx, app.StakingKeeper)
 

@@ -27,7 +27,8 @@ func TestBeginBlocker(t *testing.T) {
 	addr, pk := sdk.ValAddress(pks[0].Address()), pks[0]
 
 	// bond the validator
-	res, err := staking.NewHandler(app.StakingKeeper)(ctx, slashingkeeper.NewTestMsgCreateValidator(addr, pk, amt))
+	msg := slashingkeeper.NewTestMsgCreateValidator(addr, pk, amt, t)
+	res, err := staking.NewHandler(app.StakingKeeper)(ctx, msg)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 

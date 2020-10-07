@@ -3,8 +3,10 @@ package types
 import (
 	"bytes"
 
+	proto "github.com/gogo/protobuf/proto"
 	"github.com/tendermint/tendermint/crypto"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
@@ -31,21 +33,25 @@ var (
 func NewMsgCreateValidator(
 	valAddr sdk.ValAddress, pubKey crypto.PubKey, selfDelegation sdk.Coin,
 	description Description, commission CommissionRates, minSelfDelegation sdk.Int,
-) *MsgCreateValidator {
-	var pkStr string
-	if pubKey != nil {
-		pkStr = sdk.MustBech32ifyPubKey(sdk.Bech32PubKeyTypeConsPub, pubKey)
+) (*MsgCreateValidator, error) {
+	protoMsg, ok := pubKey.(proto.Message)
+	if !ok {
+		return nil, sdkerrors.ErrInvalidPubKey
+	}
+	pubKeyAny, err := codectypes.NewAnyWithValue(protoMsg)
+	if err != nil {
+		return nil, err
 	}
 
 	return &MsgCreateValidator{
 		Description:       description,
 		DelegatorAddress:  sdk.AccAddress(valAddr).String(),
 		ValidatorAddress:  valAddr.String(),
-		Pubkey:            pkStr,
+		Pubkey:            pubKeyAny,
 		Value:             selfDelegation,
 		Commission:        commission,
 		MinSelfDelegation: minSelfDelegation,
-	}
+	}, nil
 }
 
 // Route implements the sdk.Msg interface.
@@ -105,7 +111,7 @@ func (msg MsgCreateValidator) ValidateBasic() error {
 		return ErrBadValidatorAddr
 	}
 
-	if msg.Pubkey == "" {
+	if msg.Pubkey == nil {
 		return ErrEmptyValidatorPubKey
 	}
 

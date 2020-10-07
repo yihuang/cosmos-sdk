@@ -33,7 +33,7 @@ func TestCannotUnjailUnlessJailed(t *testing.T) {
 	amt := sdk.TokensFromConsensusPower(100)
 	addr, val := sdk.ValAddress(pks[0].Address()), pks[0]
 
-	msg := keeper.NewTestMsgCreateValidator(addr, val, amt)
+	msg := keeper.NewTestMsgCreateValidator(addr, val, amt, t)
 	res, err := staking.NewHandler(app.StakingKeeper)(ctx, msg)
 	require.NoError(t, err)
 	require.NotNil(t, res)
@@ -109,7 +109,7 @@ func TestJailedValidatorDelegations(t *testing.T) {
 	valPubKey := pks[1]
 	valAddr, consAddr := sdk.ValAddress(pks[1].Address()), sdk.ConsAddress(pks[0].Address())
 
-	msgCreateVal := keeper.NewTestMsgCreateValidator(valAddr, valPubKey, bondAmount)
+	msgCreateVal := keeper.NewTestMsgCreateValidator(valAddr, valPubKey, bondAmount, t)
 	res, err := staking.NewHandler(app.StakingKeeper)(ctx, msgCreateVal)
 	require.NoError(t, err)
 	require.NotNil(t, res)

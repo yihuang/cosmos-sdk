@@ -32,7 +32,7 @@ func TestUnJailNotBonded(t *testing.T) {
 	// create max (5) validators all with the same power
 	for i := uint32(0); i < p.MaxValidators; i++ {
 		addr, val := valAddrs[i], pks[i]
-		res, err := sh(ctx, keeper.NewTestMsgCreateValidator(addr, val, amt))
+		res, err := sh(ctx, keeper.NewTestMsgCreateValidator(addr, val, amt, t))
 		require.NoError(t, err)
 		require.NotNil(t, res)
 	}
@@ -42,7 +42,7 @@ func TestUnJailNotBonded(t *testing.T) {
 
 	// create a 6th validator with less power than the cliff validator (won't be bonded)
 	addr, val := valAddrs[5], pks[5]
-	createValMsg := keeper.NewTestMsgCreateValidator(addr, val, sdk.TokensFromConsensusPower(50))
+	createValMsg := keeper.NewTestMsgCreateValidator(addr, val, sdk.TokensFromConsensusPower(50), t)
 	createValMsg.MinSelfDelegation = sdk.TokensFromConsensusPower(50)
 	res, err := sh(ctx, createValMsg)
 	require.NoError(t, err)
@@ -111,7 +111,7 @@ func TestHandleNewValidator(t *testing.T) {
 	ctx = ctx.WithBlockHeight(app.SlashingKeeper.SignedBlocksWindow(ctx) + 1)
 
 	// Validator created
-	res, err := sh(ctx, keeper.NewTestMsgCreateValidator(addr, val, amt))
+	res, err := sh(ctx, keeper.NewTestMsgCreateValidator(addr, val, amt, t))
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
@@ -158,7 +158,7 @@ func TestHandleAlreadyJailed(t *testing.T) {
 
 	addr, val := valAddrs[0], pks[0]
 	sh := staking.NewHandler(app.StakingKeeper)
-	res, err := sh(ctx, keeper.NewTestMsgCreateValidator(addr, val, amt))
+	res, err := sh(ctx, keeper.NewTestMsgCreateValidator(addr, val, amt, t))
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
@@ -220,7 +220,7 @@ func TestValidatorDippingInAndOut(t *testing.T) {
 	addr, val := pks[0].Address(), pks[0]
 	consAddr := sdk.ConsAddress(addr)
 	sh := staking.NewHandler(app.StakingKeeper)
-	res, err := sh(ctx, keeper.NewTestMsgCreateValidator(sdk.ValAddress(addr), val, amt))
+	res, err := sh(ctx, keeper.NewTestMsgCreateValidator(sdk.ValAddress(addr), val, amt, t))
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
@@ -235,7 +235,7 @@ func TestValidatorDippingInAndOut(t *testing.T) {
 
 	// kick first validator out of validator set
 	newAmt := sdk.TokensFromConsensusPower(101)
-	res, err = sh(ctx, keeper.NewTestMsgCreateValidator(sdk.ValAddress(pks[1].Address()), pks[1], newAmt))
+	res, err = sh(ctx, keeper.NewTestMsgCreateValidator(sdk.ValAddress(pks[1].Address()), pks[1], newAmt, t))
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
