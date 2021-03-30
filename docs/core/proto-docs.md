@@ -33,7 +33,6 @@
     - [Output](#cosmos.bank.v1beta1.Output)
     - [Params](#cosmos.bank.v1beta1.Params)
     - [SendEnabled](#cosmos.bank.v1beta1.SendEnabled)
-    - [Supply](#cosmos.bank.v1beta1.Supply)
   
 - [cosmos/bank/v1beta1/genesis.proto](#cosmos/bank/v1beta1/genesis.proto)
     - [Balance](#cosmos.bank.v1beta1.Balance)
@@ -101,6 +100,9 @@
     - [CommitID](#cosmos.base.store.v1beta1.CommitID)
     - [CommitInfo](#cosmos.base.store.v1beta1.CommitInfo)
     - [StoreInfo](#cosmos.base.store.v1beta1.StoreInfo)
+  
+- [cosmos/base/store/v1beta1/listening.proto](#cosmos/base/store/v1beta1/listening.proto)
+    - [StoreKVPair](#cosmos.base.store.v1beta1.StoreKVPair)
   
 - [cosmos/base/store/v1beta1/snapshot.proto](#cosmos/base/store/v1beta1/snapshot.proto)
     - [SnapshotIAVLItem](#cosmos.base.store.v1beta1.SnapshotIAVLItem)
@@ -1959,6 +1961,296 @@ between a store name and the commit ID.
 | ----- | ---- | ----- | ----------- |
 | `name` | [string](#string) |  |  |
 | `commit_id` | [CommitID](#cosmos.base.store.v1beta1.CommitID) |  |  |
+
+
+
+
+
+ <!-- end messages -->
+
+ <!-- end enums -->
+
+ <!-- end HasExtensions -->
+
+ <!-- end services -->
+
+
+
+<a name="cosmos/base/store/v1beta1/snapshot.proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## cosmos/base/store/v1beta1/snapshot.proto
+
+
+
+<a name="cosmos.base.store.v1beta1.SnapshotIAVLItem"></a>
+
+### SnapshotIAVLItem
+SnapshotIAVLItem is an exported IAVL node.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| `key` | [bytes](#bytes) |  |  |
+| `value` | [bytes](#bytes) |  |  |
+| `version` | [int64](#int64) |  |  |
+| `height` | [int32](#int32) |  |  |
+
+
+
+
+
+
+<a name="cosmos.base.store.v1beta1.SnapshotItem"></a>
+
+### SnapshotItem
+SnapshotItem is an item contained in a rootmulti.Store snapshot.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| `store` | [SnapshotStoreItem](#cosmos.base.store.v1beta1.SnapshotStoreItem) |  |  |
+| `iavl` | [SnapshotIAVLItem](#cosmos.base.store.v1beta1.SnapshotIAVLItem) |  |  |
+
+
+
+
+
+
+<a name="cosmos.base.store.v1beta1.SnapshotStoreItem"></a>
+
+### SnapshotStoreItem
+SnapshotStoreItem contains metadata about a snapshotted store.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| `name` | [string](#string) |  |  |
+
+
+
+
+
+ <!-- end messages -->
+
+ <!-- end enums -->
+
+ <!-- end HasExtensions -->
+
+ <!-- end services -->
+
+
+
+<a name="cosmos/base/tendermint/v1beta1/query.proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## cosmos/base/tendermint/v1beta1/query.proto
+
+
+
+<a name="cosmos.base.tendermint.v1beta1.GetBlockByHeightRequest"></a>
+
+### GetBlockByHeightRequest
+GetBlockByHeightRequest is the request type for the Query/GetBlockByHeight RPC method.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| `height` | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="cosmos.base.tendermint.v1beta1.GetBlockByHeightResponse"></a>
+
+### GetBlockByHeightResponse
+GetBlockByHeightResponse is the response type for the Query/GetBlockByHeight RPC method.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| `interface_name` | [string](#string) |  | interface_name defines the interface to query the implementations for. |
+
+
+
+
+
+
+<a name="cosmos.base.reflection.v1beta1.ListImplementationsResponse"></a>
+
+### ListImplementationsResponse
+ListImplementationsResponse is the response type of the ListImplementations
+RPC.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| `implementation_message_names` | [string](#string) | repeated |  |
+
+
+
+
+
+ <!-- end messages -->
+
+ <!-- end enums -->
+
+ <!-- end HasExtensions -->
+
+
+<a name="cosmos.base.reflection.v1beta1.ReflectionService"></a>
+
+### ReflectionService
+ReflectionService defines a service for interface reflection.
+
+| Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+| ----------- | ------------ | ------------- | ------------| ------- | -------- |
+| `ListAllInterfaces` | [ListAllInterfacesRequest](#cosmos.base.reflection.v1beta1.ListAllInterfacesRequest) | [ListAllInterfacesResponse](#cosmos.base.reflection.v1beta1.ListAllInterfacesResponse) | ListAllInterfaces lists all the interfaces registered in the interface registry. | GET|/cosmos/base/reflection/v1beta1/interfaces|
+| `ListImplementations` | [ListImplementationsRequest](#cosmos.base.reflection.v1beta1.ListImplementationsRequest) | [ListImplementationsResponse](#cosmos.base.reflection.v1beta1.ListImplementationsResponse) | ListImplementations list all the concrete types that implement a given interface. | GET|/cosmos/base/reflection/v1beta1/interfaces/{interface_name}/implementations|
+
+ <!-- end services -->
+
+
+
+<a name="cosmos/base/snapshots/v1beta1/snapshot.proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## cosmos/base/snapshots/v1beta1/snapshot.proto
+
+
+
+<a name="cosmos.base.snapshots.v1beta1.Metadata"></a>
+
+### Metadata
+Metadata contains SDK-specific snapshot metadata.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| `chunk_hashes` | [bytes](#bytes) | repeated | SHA-256 chunk hashes |
+
+
+
+
+
+
+<a name="cosmos.base.snapshots.v1beta1.Snapshot"></a>
+
+### Snapshot
+Snapshot contains Tendermint state sync snapshot info.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| `height` | [uint64](#uint64) |  |  |
+| `format` | [uint32](#uint32) |  |  |
+| `chunks` | [uint32](#uint32) |  |  |
+| `hash` | [bytes](#bytes) |  |  |
+| `metadata` | [Metadata](#cosmos.base.snapshots.v1beta1.Metadata) |  |  |
+
+
+
+
+
+ <!-- end messages -->
+
+ <!-- end enums -->
+
+ <!-- end HasExtensions -->
+
+ <!-- end services -->
+
+
+
+<a name="cosmos/base/store/v1beta1/commit_info.proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## cosmos/base/store/v1beta1/commit_info.proto
+
+
+
+<a name="cosmos.base.store.v1beta1.CommitID"></a>
+
+### CommitID
+CommitID defines the committment information when a specific store is
+committed.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| `version` | [int64](#int64) |  |  |
+| `hash` | [bytes](#bytes) |  |  |
+
+
+
+
+
+
+<a name="cosmos.base.store.v1beta1.CommitInfo"></a>
+
+### CommitInfo
+CommitInfo defines commit information used by the multi-store when committing
+a version/height.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| `version` | [int64](#int64) |  |  |
+| `store_infos` | [StoreInfo](#cosmos.base.store.v1beta1.StoreInfo) | repeated |  |
+
+
+
+
+
+
+<a name="cosmos.base.store.v1beta1.StoreInfo"></a>
+
+### StoreInfo
+StoreInfo defines store-specific commit information. It contains a reference
+between a store name and the commit ID.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| `name` | [string](#string) |  |  |
+| `commit_id` | [CommitID](#cosmos.base.store.v1beta1.CommitID) |  |  |
+
+
+
+
+
+ <!-- end messages -->
+
+ <!-- end enums -->
+
+ <!-- end HasExtensions -->
+
+ <!-- end services -->
+
+
+
+<a name="cosmos/base/store/v1beta1/listening.proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## cosmos/base/store/v1beta1/listening.proto
+
+
+
+<a name="cosmos.base.store.v1beta1.StoreKVPair"></a>
+
+### StoreKVPair
+StoreKVPair is a KVStore KVPair used for listening to state changes (Sets and Deletes)
+It optionally includes the StoreKey for the originating KVStore and a Boolean flag to distinguish between Sets and Deletes
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| `store_key` | [string](#string) |  | the store key for the KVStore this pair originates from |
+| `delete` | [bool](#bool) |  | true indicates a delete operation, false indicates a set operation |
+| `key` | [bytes](#bytes) |  |  |
+| `value` | [bytes](#bytes) |  |  |
 
 
 

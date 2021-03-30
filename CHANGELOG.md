@@ -40,6 +40,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 * [#10725](https://github.com/cosmos/cosmos-sdk/pull/10725) populate `ctx.ConsensusParams` for begin/end blockers.
 
+### Improvements
+
+* (store) [\#8012](https://github.com/cosmos/cosmos-sdk/pull/8012) Implementation of ADR-038 WriteListener and listen.KVStore
+
 ## [v0.42.11](https://github.com/cosmos/cosmos-sdk/releases/tag/v0.42.11) - 2021-12-07
 
 ### Improvements
