@@ -3,6 +3,7 @@ package keeper
 import (
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -292,6 +293,7 @@ func (k Keeper) ReadUpgradeInfoFromDisk() (store.UpgradeInfo, error) {
 		return upgradeInfo, err
 	}
 
+	fmt.Println("upgrade info", data)
 	if err := json.Unmarshal(data, &upgradeInfo); err != nil {
 		return upgradeInfo, err
 	}
