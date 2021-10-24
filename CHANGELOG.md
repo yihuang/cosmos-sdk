@@ -37,6 +37,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 ## [Unreleased]
 
+### Improvements
+
+* (store) [\#8664](https://github.com/cosmos/cosmos-sdk/pull/8664) Implementation of ADR-038 file StreamingService
+
 ### Reverts
 
 * revert f02c26ce51b948366a26817ff75c2f4aae15ed02: populate ctx.ConsensusParams for begin blockers
