@@ -43,6 +43,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 ### Improvements
 
 * (store) [\#8012](https://github.com/cosmos/cosmos-sdk/pull/8012) Implementation of ADR-038 WriteListener and listen.KVStore
+* (store) [\#8664](https://github.com/cosmos/cosmos-sdk/pull/8664) Implementation of ADR-038 file StreamingService
 
 ## [v0.42.11](https://github.com/cosmos/cosmos-sdk/releases/tag/v0.42.11) - 2021-12-07
 
