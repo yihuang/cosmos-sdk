@@ -606,15 +606,11 @@ func (app *BaseApp) runTx(mode runTxMode, txBytes []byte) (gInfo sdk.GasInfo, re
 	//
 	// NOTE: This must exist in a separate defer function for the above recovery
 	// to recover from this one.
+	blockGasConsumed := false
 	defer func() {
-		if mode == runTxModeDeliver {
-			ctx.BlockGasMeter().ConsumeGas(
-				ctx.GasMeter().GasConsumedToLimit(), "block gas meter",
-			)
-
-			if ctx.BlockGasMeter().GasConsumed() < startingGas {
-				panic(sdk.ErrorGasOverflow{Descriptor: "tx gas summation"})
-			}
+		if mode == runTxModeDeliver && !blockGasConsumed {
+			consumeBlockGas(ctx, startingGas)
+			blockGasConsumed = true
 		}
 	}()
 
@@ -678,6 +674,10 @@ func (app *BaseApp) runTx(mode runTxMode, txBytes []byte) (gInfo sdk.GasInfo, re
 	// Result if any single message fails or does not have a registered Handler.
 	result, err = app.runMsgs(runMsgCtx, msgs, mode)
 	if err == nil && mode == runTxModeDeliver {
+		// When block gas exceeds, it'll panic and won't write the cached store.
+		consumeBlockGas(ctx, startingGas)
+		blockGasConsumed = true
+
 		msCache.Write()
 
 		if len(anteEvents) > 0 {
@@ -765,4 +765,14 @@ func (app *BaseApp) runMsgs(ctx sdk.Context, msgs []sdk.Msg, mode runTxMode) (*s
 		Log:    strings.TrimSpace(msgLogs.String()),
 		Events: events.ToABCIEvents(),
 	}, nil
+}
+
+func consumeBlockGas(ctx sdk.Context, startingGas uint64) {
+	ctx.BlockGasMeter().ConsumeGas(
+		ctx.GasMeter().GasConsumedToLimit(), "block gas meter",
+	)
+
+	if ctx.BlockGasMeter().GasConsumed() < startingGas {
+		panic(sdk.ErrorGasOverflow{Descriptor: "tx gas summation"})
+	}
 }
