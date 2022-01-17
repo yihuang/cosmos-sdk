@@ -13,7 +13,7 @@ import (
 
 func TestManager_List(t *testing.T) {
 	store := setupStore(t)
-	manager := snapshots.NewManager(store, nil)
+	manager := snapshots.NewManager(store, nil, nil)
 
 	mgrList, err := manager.List()
 	require.NoError(t, err)
@@ -32,7 +32,7 @@ func TestManager_List(t *testing.T) {
 
 func TestManager_LoadChunk(t *testing.T) {
 	store := setupStore(t)
-	manager := snapshots.NewManager(store, nil)
+	manager := snapshots.NewManager(store, nil, nil)
 
 	// Existing chunk should return body
 	chunk, err := manager.LoadChunk(2, 1, 1)
@@ -54,13 +54,13 @@ func TestManager_LoadChunk(t *testing.T) {
 func TestManager_Take(t *testing.T) {
 	store := setupStore(t)
 	snapshotter := &mockSnapshotter{
-		chunks: [][]byte{
+		items: [][]byte{
 			{1, 2, 3},
 			{4, 5, 6},
 			{7, 8, 9},
 		},
 	}
-	manager := snapshots.NewManager(store, snapshotter)
+	manager := snapshots.NewManager(store, snapshotter, nil)
 
 	// nil manager should return error
 	_, err := (*snapshots.Manager)(nil).Create(1)
@@ -97,7 +97,7 @@ func TestManager_Take(t *testing.T) {
 
 func TestManager_Prune(t *testing.T) {
 	store := setupStore(t)
-	manager := snapshots.NewManager(store, nil)
+	manager := snapshots.NewManager(store, nil, nil)
 
 	pruned, err := manager.Prune(2)
 	require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestManager_Prune(t *testing.T) {
 func TestManager_Restore(t *testing.T) {
 	store := setupStore(t)
 	target := &mockSnapshotter{}
-	manager := snapshots.NewManager(store, target)
+	manager := snapshots.NewManager(store, target, nil)
 
 	chunks := [][]byte{
 		{1, 2, 3},
@@ -182,7 +182,7 @@ func TestManager_Restore(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, chunks, target.chunks)
+	assert.Equal(t, chunks, target.items)
 
 	// Starting a new restore should fail now, because the target already has contents.
 	err = manager.Restore(types.Snapshot{
@@ -197,7 +197,7 @@ func TestManager_Restore(t *testing.T) {
 	// But if we clear out the target we should be able to start a new restore. This time we'll
 	// fail it with a checksum error. That error should stop the operation, so that we can do
 	// a prune operation right after.
-	target.chunks = nil
+	target.items = nil
 	err = manager.Restore(types.Snapshot{
 		Height:   3,
 		Format:   1,

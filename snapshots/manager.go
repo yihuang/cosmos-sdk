@@ -1,14 +1,18 @@
 package snapshots
 
 import (
+	"bufio"
 	"bytes"
+	"compress/zlib"
 	"crypto/sha256"
 	"io"
 	"io/ioutil"
+	"sort"
 	"sync"
 
 	"github.com/cosmos/cosmos-sdk/snapshots/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	protoio "github.com/gogo/protobuf/io"
 )
 
 const (
@@ -18,6 +22,11 @@ const (
 	opRestore  operation = "restore"
 
 	chunkBufferSize = 4
+
+	// Do not change chunk size without new snapshot format (must be uniform across nodes)
+	snapshotChunkSize   = uint64(10e6)
+	snapshotBufferSize  = int(snapshotChunkSize)
+	snapshotMaxItemSize = int(64e6) // SDK has no key/value size limit, so we set an arbitrary limit
 )
 
 // operation represents a Manager operation. Only one operation can be in progress at a time.
@@ -43,8 +52,9 @@ type restoreDone struct {
 // 2) io.ReadCloser streams automatically propagate IO errors, and can pass arbitrary
 //    errors via io.Pipe.CloseWithError().
 type Manager struct {
-	store  *Store
-	target types.Snapshotter
+	store      *Store
+	multistore types.Snapshotter
+	extensions map[string]types.NamedSnapshotter
 
 	mtx                sync.Mutex
 	operation          operation
@@ -55,10 +65,22 @@ type Manager struct {
 }
 
 // NewManager creates a new manager.
-func NewManager(store *Store, target types.Snapshotter) *Manager {
+func NewManager(store *Store, multistore types.Snapshotter, extensions map[string]types.NamedSnapshotter) *Manager {
 	return &Manager{
-		store:  store,
-		target: target,
+		store:      store,
+		multistore: multistore,
+		extensions: extensions,
+	}
+}
+
+// RegisterExtensions register extension snapshotters to manager
+func (m *Manager) RegisterExtensions(extensions ...types.NamedSnapshotter) {
+	for _, extension := range extensions {
+		name := extension.SnapshotterName()
+		if _, ok := m.extensions[name]; ok {
+			panic("duplicated snapshotter name")
+		}
+		m.extensions[name] = extension
 	}
 }
 
@@ -100,6 +122,17 @@ func (m *Manager) endLocked() {
 	m.restoreChunkIndex = 0
 }
 
+// sortedExtensionNames sort extension names for deterministic iteration.
+func (m *Manager) sortedExtensionNames() []string {
+	names := make([]string, 0, len(m.extensions))
+	for name := range m.extensions {
+		names = append(names, name)
+	}
+
+	sort.Strings(names)
+	return names
+}
+
 // Create creates a snapshot and returns its metadata.
 func (m *Manager) Create(height uint64) (*types.Snapshot, error) {
 	if m == nil {
@@ -120,11 +153,48 @@ func (m *Manager) Create(height uint64) (*types.Snapshot, error) {
 			"a more recent snapshot already exists at height %v", latest.Height)
 	}
 
-	chunks, err := m.target.Snapshot(height, types.CurrentFormat)
-	if err != nil {
-		return nil, err
-	}
-	return m.store.Save(height, types.CurrentFormat, chunks)
+	// Spawn goroutine to generate snapshot chunks and pass their io.ReadClosers through a channel
+	ch := make(chan io.ReadCloser)
+	go func() {
+		// Set up a stream pipeline to serialize snapshot nodes:
+		// ExportNode -> delimited Protobuf -> zlib -> buffer -> chunkWriter -> chan io.ReadCloser
+		chunkWriter := NewChunkWriter(ch, snapshotChunkSize)
+		defer chunkWriter.Close()
+		bufWriter := bufio.NewWriterSize(chunkWriter, snapshotBufferSize)
+		defer func() {
+			if err := bufWriter.Flush(); err != nil {
+				chunkWriter.CloseWithError(err)
+			}
+		}()
+		zWriter, err := zlib.NewWriterLevel(bufWriter, 7)
+		if err != nil {
+			chunkWriter.CloseWithError(sdkerrors.Wrap(err, "zlib failure"))
+			return
+		}
+		defer func() {
+			if err := zWriter.Close(); err != nil {
+				chunkWriter.CloseWithError(err)
+			}
+		}()
+		protoWriter := protoio.NewDelimitedWriter(zWriter)
+		defer func() {
+			if err := protoWriter.Close(); err != nil {
+				chunkWriter.CloseWithError(err)
+			}
+		}()
+		if err = m.multistore.Snapshot(height, protoWriter); err != nil {
+			chunkWriter.CloseWithError(err)
+			return
+		}
+		for _, name := range m.sortedExtensionNames() {
+			if err := m.extensions[name].Snapshot(height, protoWriter); err != nil {
+				chunkWriter.CloseWithError(err)
+				return
+			}
+		}
+	}()
+
+	return m.store.Save(height, types.CurrentFormat, ch)
 }
 
 // List lists snapshots, mirroring ABCI ListSnapshots. It can be concurrent with other operations.
@@ -179,13 +249,48 @@ func (m *Manager) Restore(snapshot types.Snapshot) error {
 	chChunks := make(chan io.ReadCloser, chunkBufferSize)
 	chReady := make(chan struct{}, 1)
 	chDone := make(chan restoreDone, 1)
-	go func() {
-		err := m.target.Restore(snapshot.Height, snapshot.Format, chChunks, chReady)
-		chDone <- restoreDone{
-			complete: err == nil,
-			err:      err,
+
+	// Set up a restore stream pipeline
+	// chan io.ReadCloser -> chunkReader -> zlib -> delimited Protobuf -> ExportNode
+	chunkReader := NewChunkReader(chChunks)
+	defer chunkReader.Close()
+	zReader, err := zlib.NewReader(chunkReader)
+	if err != nil {
+		return sdkerrors.Wrap(err, "zlib failure")
+	}
+	defer zReader.Close()
+	protoReader := protoio.NewDelimitedReader(zReader, snapshotMaxItemSize)
+	defer protoReader.Close()
+
+	doRestore := func() error {
+		next, err := m.multistore.Restore(snapshot.Height, snapshot.Format, protoReader, chReady)
+		if err != nil {
+			return sdkerrors.Wrap(err, "multistore restore")
 		}
-		close(chDone)
+		for {
+			metadata := next.GetExtension()
+			if metadata == nil {
+				return sdkerrors.Wrapf(sdkerrors.ErrLogic, "unknown snapshot item %T", next.Item)
+			}
+			extensionSnapshotter, ok := m.extensions[metadata.Name]
+			if !ok {
+				return sdkerrors.Wrapf(sdkerrors.ErrLogic, "unknown extension snapshotter %s", metadata.Name)
+			}
+			next, err = extensionSnapshotter.Restore(snapshot.Height, metadata.Format, protoReader, chReady)
+			if err != nil {
+				return sdkerrors.Wrapf(err, "extension %s restore", metadata.Name)
+			}
+		}
+	}
+
+	go func() {
+		if err := doRestore(); err != nil {
+			chDone <- restoreDone{
+				complete: err == nil,
+				err:      err,
+			}
+			close(chDone)
+		}
 	}()
 
 	// Check for any initial errors from the restore, before any chunks are fed.
