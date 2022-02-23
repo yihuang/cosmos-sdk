@@ -13,8 +13,9 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
-	"github.com/cosmos/cosmos-sdk/x/auth/keeper"
+	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	"github.com/cosmos/cosmos-sdk/x/auth/vesting/client/cli"
+	"github.com/cosmos/cosmos-sdk/x/auth/vesting/keeper"
 	"github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 )
 
@@ -77,15 +78,17 @@ func (AppModuleBasic) GetQueryCmd() *cobra.Command {
 type AppModule struct {
 	AppModuleBasic
 
-	accountKeeper keeper.AccountKeeper
+	accountKeeper authkeeper.AccountKeeper
 	bankKeeper    types.BankKeeper
+	vestingKeeper keeper.VestingKeeper
 }
 
-func NewAppModule(ak keeper.AccountKeeper, bk types.BankKeeper) AppModule {
+func NewAppModule(ak authkeeper.AccountKeeper, bk types.BankKeeper, vk keeper.VestingKeeper) AppModule {
 	return AppModule{
 		AppModuleBasic: AppModuleBasic{},
 		accountKeeper:  ak,
 		bankKeeper:     bk,
+		vestingKeeper:  vk,
 	}
 }
 
@@ -97,13 +100,15 @@ func (am AppModule) Route() sdk.Route {
 	return sdk.Route{}
 }
 
-// QuerierRoute returns an empty string as the module contains no query
-// functionality.
-func (AppModule) QuerierRoute() string { return "" }
+// QuerierRoute returns the staking module's querier route name.
+func (AppModule) QuerierRoute() string {
+	return types.QuerierRoute
+}
 
 // RegisterServices registers module services.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), NewMsgServerImpl(am.accountKeeper, am.bankKeeper))
+	types.RegisterQueryServer(cfg.QueryServer(), am.vestingKeeper)
 }
 
 // LegacyQuerierHandler performs a no-op.
