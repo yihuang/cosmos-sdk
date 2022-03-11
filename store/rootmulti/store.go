@@ -894,27 +894,36 @@ func (rs *Store) buildCommitInfo(version int64) *types.CommitInfo {
 }
 
 // RollbackToVersion delete the versions after `target` and update the latest version.
-func (rs *Store) RollbackToVersion(target int64) int64 {
-	if target < 0 {
-		panic("Negative rollback target")
+func (rs *Store) RollbackToVersion(target int64) error {
+	if target <= 0 {
+		return fmt.Errorf("invalid rollback height target: %d", target)
 	}
-	current := getLatestVersion(rs.db)
-	if target >= current {
-		return current
+
+	for key, store := range rs.stores {
+		if store.GetStoreType() == types.StoreTypeIAVL {
+			// If the store is wrapped with an inter-block cache, we must first unwrap
+			// it to get the underlying IAVL store.
+			store = rs.GetCommitKVStore(key)
+			_, err := store.(*iavl.Store).LoadVersionForOverwriting(target)
+			if err != nil {
+				return err
+			}
+		}
 	}
-	for ; current > target; current-- {
-		rs.pruneHeights = append(rs.pruneHeights, current)
-	}
-	rs.pruneStores()
 
 	// update latest height
-	bz, err := gogotypes.StdInt64Marshal(current)
+	bz, err := gogotypes.StdInt64Marshal(target)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	rs.db.Set([]byte(latestVersionKey), bz)
-	return current
+	if err := rs.db.Set([]byte(latestVersionKey), bz); err != nil {
+		return err
+	}
+	if err := rs.LoadLatestVersion(); err != nil {
+		return err
+	}
+	return nil
 }
 
 type storeParams struct {
