@@ -41,6 +41,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 * revert f02c26ce51b948366a26817ff75c2f4aae15ed02: populate ctx.ConsensusParams for begin blockers
 
+### Improvements
+
+* [\#11563](https://github.com/cosmos/cosmos-sdk/pull/11563) Updated Tendermint to v0.34.19; `unsafe-reset-all` command has been moved to the `tendermint` sub-command.
+
 ### Features
 
 * (x/bank) [\#10771](https://github.com/cosmos/cosmos-sdk/pull/10771) Add safety check on bank module perms to allow module-specific mint restrictions (e.g. only minting a certain denom).
