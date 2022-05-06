@@ -766,3 +766,9 @@ func (app *BaseApp) runMsgs(ctx sdk.Context, msgs []sdk.Msg, mode runTxMode) (*s
 		Events: events.ToABCIEvents(),
 	}, nil
 }
+
+// WithBlockGasMeter override the block gas meter of deliver state
+func (app *BaseApp) WithBlockGasMeter(gasMeter sdk.GasMeter) {
+	app.deliverState.ctx = app.deliverState.ctx.
+		WithBlockGasMeter(gasMeter)
+}
