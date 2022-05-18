@@ -132,3 +132,5 @@ replace (
 	// the following version across all dependencies.
 	google.golang.org/grpc => google.golang.org/grpc v1.33.2
 )
+
+replace github.com/tendermint/tendermint => github.com/yihuang/tendermint v0.34.14-0.20220518061324-81344ac9464d
