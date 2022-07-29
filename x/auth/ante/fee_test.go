@@ -1,11 +1,16 @@
 package ante_test
 
 import (
+	"testing"
+
+	sdkmath "cosmossdk.io/math"
+
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/testutil/testdata"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	"github.com/cosmos/cosmos-sdk/x/bank/testutil"
+	"github.com/stretchr/testify/require"
 )
 
 func (s *AnteTestSuite) TestDeductFeeDecorator_ZeroGas() {
@@ -42,8 +47,9 @@ func (s *AnteTestSuite) TestDeductFeeDecorator_ZeroGas() {
 	s.Require().NoError(err)
 }
 
-func (s *AnteTestSuite) TestEnsureMempoolFees() {
-	s.SetupTest(true) // setup
+func TestEnsureMempoolFees(t *testing.T) {
+	ante.DefaultPriorityReduction = sdkmath.NewInt(50)
+	s := SetupTestSuite(t, true) // setup
 	s.txBuilder = s.clientCtx.TxConfig.NewTxBuilder()
 
 	mfd := ante.NewDeductFeeDecorator(s.app.AccountKeeper, s.app.BankKeeper, s.app.FeeGrantKeeper, nil)
@@ -98,10 +104,11 @@ func (s *AnteTestSuite) TestEnsureMempoolFees() {
 	s.ctx = s.ctx.WithMinGasPrices(lowGasPrice)
 
 	newCtx, err := antehandler(s.ctx, tx, false)
-	s.Require().Nil(err, "Decorator should not have errored on fee higher than local gasPrice")
-	// Priority is the smallest amount in any denom. Since we have only 1 fee
-	// of 150atom, the priority here is 150.
-	s.Require().Equal(feeAmount.AmountOf("atom").Int64(), newCtx.Priority())
+	require.Nil(t, err, "Decorator should not have errored on fee higher than local gasPrice")
+	// Priority is the smallest amount in any denom divided by `ante.DefaultPriorityReduction`.
+	// Since we have only 1 fee of 150atom, the priority here is `150 / 50 = 3`.
+	require.Equal(t, feeAmount.AmountOf("atom").Quo(ante.DefaultPriorityReduction).Int64(), newCtx.Priority())
+	require.Equal(t, int64(3), newCtx.Priority())
 }
 
 func (s *AnteTestSuite) TestDeductFees() {
