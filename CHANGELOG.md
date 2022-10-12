@@ -50,6 +50,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 ## Bug Fixes
 
 * (x/gov) [#13918](https://github.com/cosmos/cosmos-sdk/pull/13918) Fix propagation of message errors when executing a proposal.
+* (store) [#13516](https://github.com/cosmos/cosmos-sdk/pull/13516) fix state listener observe writes at wrong time.
 
 ## [v0.46.5](https://github.com/cosmos/cosmos-sdk/releases/tag/v0.46.5) - 2022-11-17
 
