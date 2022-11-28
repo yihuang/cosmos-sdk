@@ -419,6 +419,19 @@ func GetConfig(v *viper.Viper) (Config, error) {
 			SnapshotInterval:   v.GetUint64("state-sync.snapshot-interval"),
 			SnapshotKeepRecent: v.GetUint32("state-sync.snapshot-keep-recent"),
 		},
+		Store: StoreConfig{
+			Streamers: v.GetStringSlice("store.streamers"),
+		},
+		Streamers: StreamersConfig{
+			File: FileStreamerConfig{
+				Keys:            v.GetStringSlice("streamers.file.keys"),
+				WriteDir:        v.GetString("streamers.file.write_dir"),
+				Prefix:          v.GetString("streamers.file.prefix"),
+				OutputMetadata:  v.GetBool("streamers.file.output-metadata"),
+				StopNodeOnError: v.GetBool("streamers.file.stop-node-on-error"),
+				Fsync:           v.GetBool("streamers.file.fsync"),
+			},
+		},
 	}, nil
 }
 
