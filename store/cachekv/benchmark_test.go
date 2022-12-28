@@ -7,20 +7,27 @@ import (
 	"github.com/cosmos/cosmos-sdk/store"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/libs/log"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	dbm "github.com/tendermint/tm-db"
 )
 
 func DoBenchmarkDeepContextStack(b *testing.B, depth int) {
-	begin := []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
-	end := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	key := storetypes.NewKVStoreKey("test")
 
 	db := dbm.NewMemDB()
 	cms := store.NewCommitMultiStore(db)
 	cms.MountStoreWithDB(key, storetypes.StoreTypeIAVL, db)
 	cms.LoadLatestVersion()
+
+	nItems := 20
+	store := cms.GetKVStore(key)
+	for i := 0; i < nItems; i++ {
+		store.Set([]byte(fmt.Sprintf("hello%03d", i)), []byte("world"))
+	}
+	cms.Commit()
+
 	ctx := sdk.NewContext(cms, tmproto.Header{}, false, log.NewNopLogger())
 
 	var stack ContextStack
@@ -30,19 +37,21 @@ func DoBenchmarkDeepContextStack(b *testing.B, depth int) {
 		stack.Snapshot()
 
 		store := stack.CurrentContext().KVStore(key)
-		store.Set(begin, []byte("value"))
+		store.Set([]byte(fmt.Sprintf("hello%03d", i)), []byte("modified"))
 	}
 
-	store := stack.CurrentContext().KVStore(key)
+	store = stack.CurrentContext().KVStore(key)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		it := store.Iterator(begin, end)
-		it.Valid()
-		it.Key()
-		it.Value()
-		it.Next()
+		it := store.Iterator(nil, nil)
+		items := make([][]byte, 0, nItems)
+		for ; it.Valid(); it.Next() {
+			items = append(items, it.Key())
+			it.Value()
+		}
 		it.Close()
+		require.Equal(b, nItems, len(items))
 	}
 }
 
