@@ -25,7 +25,7 @@ const storeNameCtxKey = "store_name"
 // keys for the substores.
 type Store struct {
 	db     types.CacheKVStore
-	stores map[types.StoreKey]types.CacheWrap
+	stores map[types.StoreKey]types.CacheKVStore
 	keys   map[string]types.StoreKey
 
 	traceWriter  io.Writer
@@ -38,12 +38,12 @@ var _ types.CacheMultiStore = Store{}
 // CacheWrapper objects and a KVStore as the database. Each CacheWrapper store
 // is a branched store.
 func NewFromKVStore(
-	store types.KVStore, stores map[types.StoreKey]types.CacheWrapper,
+	store types.KVStore, stores map[types.StoreKey]types.KVStore,
 	keys map[string]types.StoreKey, traceWriter io.Writer, traceContext types.TraceContext,
 ) Store {
 	cms := Store{
 		db:           cachekv.NewStore(store),
-		stores:       make(map[types.StoreKey]types.CacheWrap, len(stores)),
+		stores:       make(map[types.StoreKey]types.CacheKVStore, len(stores)),
 		keys:         keys,
 		traceWriter:  traceWriter,
 		traceContext: traceContext,
@@ -55,9 +55,9 @@ func NewFromKVStore(
 				storeNameCtxKey: key.Name(),
 			})
 
-			store = tracekv.NewStore(store.(types.KVStore), cms.traceWriter, tctx)
+			store = tracekv.NewStore(store, cms.traceWriter, tctx)
 		}
-		cms.stores[key] = cachekv.NewStore(store.(types.KVStore))
+		cms.stores[key] = cachekv.NewStore(store)
 	}
 
 	return cms
@@ -66,14 +66,14 @@ func NewFromKVStore(
 // NewStore creates a new Store object from a mapping of store keys to
 // CacheWrapper objects. Each CacheWrapper store is a branched store.
 func NewStore(
-	db dbm.DB, stores map[types.StoreKey]types.CacheWrapper, keys map[string]types.StoreKey,
+	db dbm.DB, stores map[types.StoreKey]types.KVStore, keys map[string]types.StoreKey,
 	traceWriter io.Writer, traceContext types.TraceContext,
 ) Store {
 	return NewFromKVStore(dbadapter.Store{DB: db}, stores, keys, traceWriter, traceContext)
 }
 
 func newCacheMultiStoreFromCMS(cms Store) Store {
-	stores := make(map[types.StoreKey]types.CacheWrapper)
+	stores := make(map[types.StoreKey]types.KVStore)
 	for k, v := range cms.stores {
 		stores[k] = v
 	}
@@ -125,6 +125,33 @@ func (cms Store) Write() {
 	for _, store := range cms.stores {
 		store.Write()
 	}
+}
+
+func (cms Store) Clone() types.CacheMultiStore {
+	stores := make(map[types.StoreKey]types.CacheKVStore, len(cms.stores))
+	for key, store := range cms.stores {
+		stores[key] = store.Clone()
+	}
+	return Store{
+		db:     cms.db.Clone(),
+		stores: stores,
+
+		keys:         cms.keys,
+		traceWriter:  cms.traceWriter,
+		traceContext: cms.traceContext,
+	}
+}
+
+func (cms Store) Restore(s types.CacheMultiStore) {
+	ms := s.(Store)
+	cms.db.Restore(ms.db)
+	for key, store := range cms.stores {
+		store.Restore(ms.stores[key])
+	}
+
+	// this multi-store must not be used anymore
+	ms.db = nil
+	ms.stores = nil
 }
 
 // Implements CacheWrapper.

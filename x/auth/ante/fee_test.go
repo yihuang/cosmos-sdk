@@ -79,7 +79,7 @@ func (s *AnteTestSuite) TestEnsureMempoolFees() {
 	s.Require().NotNil(err, "Decorator should have errored on too low fee for local gasPrice")
 
 	// antehandler should not error since we do not check minGasPrice in simulation mode
-	cacheCtx, _ := s.ctx.CacheContext()
+	cacheCtx := s.ctx.CloneMultiStore()
 	_, err = antehandler(cacheCtx, tx, true)
 	s.Require().Nil(err, "Decorator should not have errored in simulation mode")
 

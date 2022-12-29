@@ -6,7 +6,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	abci "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/crypto/tmhash"
 	"github.com/tendermint/tendermint/libs/log"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	dbm "github.com/tendermint/tm-db"
@@ -581,29 +580,10 @@ func (app *BaseApp) getContextForTx(mode runTxMode, txBytes []byte) sdk.Context 
 	}
 
 	if mode == runTxModeSimulate {
-		ctx, _ = ctx.CacheContext()
+		ctx = ctx.CloneMultiStore()
 	}
 
 	return ctx
-}
-
-// cacheTxContext returns a new context based off of the provided context with
-// a branched multi-store.
-func (app *BaseApp) cacheTxContext(ctx sdk.Context, txBytes []byte) (sdk.Context, sdk.CacheMultiStore) {
-	ms := ctx.MultiStore()
-	// TODO: https://github.com/cosmos/cosmos-sdk/issues/2824
-	msCache := ms.CacheMultiStore()
-	if msCache.TracingEnabled() {
-		msCache = msCache.SetTracingContext(
-			sdk.TraceContext(
-				map[string]interface{}{
-					"txHash": fmt.Sprintf("%X", tmhash.Sum(txBytes)),
-				},
-			),
-		).(sdk.CacheMultiStore)
-	}
-
-	return ctx.WithMultiStore(msCache), msCache
 }
 
 // runTx processes a transaction within a given execution mode, encoded transaction
@@ -668,11 +648,6 @@ func (app *BaseApp) runTx(mode runTxMode, txBytes []byte) (gInfo sdk.GasInfo, re
 	}
 
 	if app.anteHandler != nil {
-		var (
-			anteCtx sdk.Context
-			msCache sdk.CacheMultiStore
-		)
-
 		// Branch context before AnteHandler call in case it aborts.
 		// This is required for both CheckTx and DeliverTx.
 		// Ref: https://github.com/cosmos/cosmos-sdk/issues/2772
@@ -680,8 +655,8 @@ func (app *BaseApp) runTx(mode runTxMode, txBytes []byte) (gInfo sdk.GasInfo, re
 		// NOTE: Alternatively, we could require that AnteHandler ensures that
 		// writes do not happen if aborted/failed.  This may have some
 		// performance benefits, but it'll be more difficult to get right.
-		anteCtx, msCache = app.cacheTxContext(ctx, txBytes)
-		anteCtx = anteCtx.WithEventManager(sdk.NewEventManager())
+		anteCtx := ctx.CloneMultiStore().
+			WithEventManager(sdk.NewEventManager())
 		newCtx, err := app.anteHandler(anteCtx, tx, mode == runTxModeSimulate)
 
 		if !newCtx.IsZero() {
@@ -703,21 +678,22 @@ func (app *BaseApp) runTx(mode runTxMode, txBytes []byte) (gInfo sdk.GasInfo, re
 			return gInfo, nil, nil, 0, err
 		}
 
+		// commit the cloned multistore.
+		ms.Restore(anteCtx.MultiStore())
+
 		priority = ctx.Priority()
-		msCache.Write()
 		anteEvents = events.ToABCIEvents()
 	}
-
-	// Create a new Context based off of the existing Context with a MultiStore branch
-	// in case message processing fails. At this point, the MultiStore
-	// is a branch of a branch.
-	runMsgCtx, msCache := app.cacheTxContext(ctx, txBytes)
 
 	// Attempt to execute all messages and only update state if all messages pass
 	// and we're in DeliverTx. Note, runMsgs will never return a reference to a
 	// Result if any single message fails or does not have a registered Handler.
-	result, err = app.runMsgs(runMsgCtx, msgs, mode)
-	if err == nil {
+	_ = ctx.RunAtomic(func(runMsgCtx sdk.Context) error {
+		result, err = app.runMsgs(runMsgCtx, msgs, mode)
+		if err != nil {
+			return err
+		}
+
 		// Run optional postHandlers.
 		//
 		// Note: If the postHandler fails, we also revert the runMsgs state.
@@ -729,7 +705,8 @@ func (app *BaseApp) runTx(mode runTxMode, txBytes []byte) (gInfo sdk.GasInfo, re
 
 			newCtx, err := app.postHandler(postCtx, tx, mode == runTxModeSimulate)
 			if err != nil {
-				return gInfo, nil, anteEvents, priority, err
+				result = nil
+				return err
 			}
 
 			result.Events = append(result.Events, newCtx.EventManager().ABCIEvents()...)
@@ -738,15 +715,15 @@ func (app *BaseApp) runTx(mode runTxMode, txBytes []byte) (gInfo sdk.GasInfo, re
 		if mode == runTxModeDeliver {
 			// When block gas exceeds, it'll panic and won't commit the cached store.
 			consumeBlockGas()
-
-			msCache.Write()
 		}
 
 		if len(anteEvents) > 0 && (mode == runTxModeDeliver || mode == runTxModeSimulate) {
 			// append the events in the order of occurrence
 			result.Events = append(anteEvents, result.Events...)
 		}
-	}
+
+		return nil
+	})
 
 	return gInfo, result, anteEvents, priority, err
 }

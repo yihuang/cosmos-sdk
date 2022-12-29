@@ -22,7 +22,7 @@ func (k Keeper) VerifyInvariant(goCtx context.Context, msg *types.MsgVerifyInvar
 	}
 
 	// use a cached context to avoid gas costs during invariants
-	cacheCtx, _ := ctx.CacheContext()
+	cacheCtx := ctx.CloneMultiStore()
 
 	found := false
 	msgFullRoute := msg.FullInvariantRoute()

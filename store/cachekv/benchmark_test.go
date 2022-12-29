@@ -28,7 +28,8 @@ func DoBenchmarkDeepContextStack(b *testing.B, depth int) {
 	}
 	cms.Commit()
 
-	ctx := sdk.NewContext(cms, tmproto.Header{}, false, log.NewNopLogger())
+	ms := cms.CacheMultiStore()
+	ctx := sdk.NewContext(ms, tmproto.Header{}, false, log.NewNopLogger())
 
 	var stack ContextStack
 	stack.Reset(ctx)
@@ -36,11 +37,11 @@ func DoBenchmarkDeepContextStack(b *testing.B, depth int) {
 	for i := 0; i < depth; i++ {
 		stack.Snapshot()
 
-		store := stack.CurrentContext().KVStore(key)
+		store := stack.Context().KVStore(key)
 		store.Set([]byte(fmt.Sprintf("hello%03d", i)), []byte("modified"))
 	}
 
-	store = stack.CurrentContext().KVStore(key)
+	store = stack.Context().KVStore(key)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -70,13 +71,6 @@ func BenchmarkDeepContextStack13(b *testing.B) {
 	DoBenchmarkDeepContextStack(b, 13)
 }
 
-// cachedContext is a pair of cache context and its corresponding commit method.
-// They are obtained from the return value of `context.CacheContext()`.
-type cachedContext struct {
-	ctx    sdk.Context
-	commit func()
-}
-
 // ContextStack manages the initial context and a stack of cached contexts,
 // to support the `StateDB.Snapshot` and `StateDB.RevertToSnapshot` methods.
 //
@@ -84,87 +78,48 @@ type cachedContext struct {
 type ContextStack struct {
 	// Context of the initial state before transaction execution.
 	// It's the context used by `StateDB.CommitedState`.
-	initialCtx     sdk.Context
-	cachedContexts []cachedContext
+	ctx       sdk.Context
+	snapshots []storetypes.CacheMultiStore
 }
 
 // CurrentContext returns the top context of cached stack,
 // if the stack is empty, returns the initial context.
-func (cs *ContextStack) CurrentContext() sdk.Context {
-	l := len(cs.cachedContexts)
-	if l == 0 {
-		return cs.initialCtx
-	}
-	return cs.cachedContexts[l-1].ctx
+func (cs *ContextStack) Context() sdk.Context {
+	return cs.ctx
 }
 
 // Reset sets the initial context and clear the cache context stack.
 func (cs *ContextStack) Reset(ctx sdk.Context) {
-	cs.initialCtx = ctx
-	if len(cs.cachedContexts) > 0 {
-		cs.cachedContexts = []cachedContext{}
-	}
+	cs.ctx = ctx
+	cs.snapshots = []storetypes.CacheMultiStore{}
 }
 
 // IsEmpty returns true if the cache context stack is empty.
 func (cs *ContextStack) IsEmpty() bool {
-	return len(cs.cachedContexts) == 0
-}
-
-// Commit commits all the cached contexts from top to bottom in order and clears the stack by setting an empty slice of cache contexts.
-func (cs *ContextStack) Commit() {
-	// commit in order from top to bottom
-	for i := len(cs.cachedContexts) - 1; i >= 0; i-- {
-		if cs.cachedContexts[i].commit == nil {
-			panic(fmt.Sprintf("commit function at index %d should not be nil", i))
-		} else {
-			cs.cachedContexts[i].commit()
-		}
-	}
-	cs.cachedContexts = []cachedContext{}
-}
-
-// CommitToRevision commit the cache after the target revision,
-// to improve efficiency of db operations.
-func (cs *ContextStack) CommitToRevision(target int) error {
-	if target < 0 || target >= len(cs.cachedContexts) {
-		return fmt.Errorf("snapshot index %d out of bound [%d..%d)", target, 0, len(cs.cachedContexts))
-	}
-
-	// commit in order from top to bottom
-	for i := len(cs.cachedContexts) - 1; i > target; i-- {
-		if cs.cachedContexts[i].commit == nil {
-			return fmt.Errorf("commit function at index %d should not be nil", i)
-		}
-		cs.cachedContexts[i].commit()
-	}
-	cs.cachedContexts = cs.cachedContexts[0 : target+1]
-
-	return nil
+	return len(cs.snapshots) == 0
 }
 
 // Snapshot pushes a new cached context to the stack,
 // and returns the index of it.
 func (cs *ContextStack) Snapshot() int {
-	i := len(cs.cachedContexts)
-	ctx, commit := cs.CurrentContext().CacheContext()
-	cs.cachedContexts = append(cs.cachedContexts, cachedContext{ctx: ctx, commit: commit})
-	return i
+	cs.snapshots = append(cs.snapshots, cs.ctx.MultiStore().Clone())
+	return len(cs.snapshots) - 1
 }
 
 // RevertToSnapshot pops all the cached contexts after the target index (inclusive).
 // the target should be snapshot index returned by `Snapshot`.
 // This function panics if the index is out of bounds.
 func (cs *ContextStack) RevertToSnapshot(target int) {
-	if target < 0 || target >= len(cs.cachedContexts) {
-		panic(fmt.Errorf("snapshot index %d out of bound [%d..%d)", target, 0, len(cs.cachedContexts)))
+	if target < 0 || target >= len(cs.snapshots) {
+		panic(fmt.Errorf("snapshot index %d out of bound [%d..%d)", target, 0, len(cs.snapshots)))
 	}
-	cs.cachedContexts = cs.cachedContexts[:target]
+	cs.ctx.MultiStore().Restore(cs.snapshots[target])
+	cs.snapshots = cs.snapshots[:target]
 }
 
 // RevertAll discards all the cache contexts.
 func (cs *ContextStack) RevertAll() {
-	if len(cs.cachedContexts) > 0 {
+	if len(cs.snapshots) > 0 {
 		cs.RevertToSnapshot(0)
 	}
 }

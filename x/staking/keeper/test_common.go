@@ -41,7 +41,7 @@ func TestingUpdateValidator(keeper Keeper, ctx sdk.Context, validator types.Vali
 	keeper.SetValidatorByPowerIndex(ctx, validator)
 
 	if !apply {
-		ctx, _ = ctx.CacheContext()
+		ctx = ctx.CloneMultiStore()
 	}
 	_, err := keeper.ApplyAndReturnValidatorSetUpdates(ctx)
 	if err != nil {

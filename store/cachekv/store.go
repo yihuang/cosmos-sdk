@@ -9,13 +9,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/store/types"
 )
 
-// cValue represents a cached value.
-// If dirty is true, it indicates the cached value is different from the underlying value.
-type cValue struct {
-	value []byte
-	dirty bool
-}
-
 // Store wraps an in-memory cache around an underlying types.KVStore.
 type Store struct {
 	mtx    sync.Mutex
@@ -36,6 +29,21 @@ func NewStore(parent types.KVStore) *Store {
 // GetStoreType implements Store.
 func (store *Store) GetStoreType() types.StoreType {
 	return store.parent.GetStoreType()
+}
+
+// Clone creates a snapshot of the cache store.
+// This is a copy-on-write operation and is very fast because
+// it only performs a shadowed copy.
+func (store *Store) Clone() types.CacheKVStore {
+	return &Store{
+		cache:  store.cache.Copy(),
+		parent: store.parent,
+	}
+}
+
+func (store *Store) Restore(s types.CacheKVStore) {
+	ss := s.(*Store)
+	store.cache = ss.cache
 }
 
 // Get implements types.KVStore.

@@ -18,7 +18,7 @@ func newCacheKVStore() types.CacheKVStore {
 	// create two layer of cache store to better emulate the real world.
 	mem := dbadapter.Store{DB: dbm.NewMemDB()}
 	deliverState := cachekv.NewStore(mem)
-	return cachekv.NewStore(deliverState)
+	return deliverState.Clone()
 }
 
 func keyFmt(i int) []byte { return bz(fmt.Sprintf("key%0.8d", i)) }
@@ -697,11 +697,11 @@ func BenchmarkCacheKVStoreSetAndCommit(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		store := cachekv.NewStore(mem)
-		store1 := cachekv.NewStore(store)
+		store1 := store.Clone()
 		for j := 0; j < 10; j++ {
 			store1.Set(sdk.Uint64ToBigEndian(uint64(i+j)), []byte{byte(i)})
 		}
-		store1.Write()
+		store.Restore(store1)
 		store.Write()
 	}
 }

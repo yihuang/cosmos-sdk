@@ -42,7 +42,7 @@ func (s *invariantTestSuite) SetupSuite() {
 	cms := store.NewCommitMultiStore(db)
 	cms.MountStoreWithDB(key, storetypes.StoreTypeIAVL, db)
 	_ = cms.LoadLatestVersion()
-	sdkCtx := sdk.NewContext(cms, tmproto.Header{}, false, log.NewNopLogger())
+	sdkCtx := sdk.NewContext(cms.CacheMultiStore(), tmproto.Header{}, false, log.NewNopLogger())
 
 	s.ctx = sdkCtx
 	s.cdc = cdc
@@ -50,7 +50,7 @@ func (s *invariantTestSuite) SetupSuite() {
 }
 
 func (s *invariantTestSuite) TestGroupTotalWeightInvariant() {
-	sdkCtx, _ := s.ctx.CacheContext()
+	sdkCtx := s.ctx.CloneMultiStore()
 	curCtx, cdc, key := sdkCtx, s.cdc, s.key
 
 	// Group Table

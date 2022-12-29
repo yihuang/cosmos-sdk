@@ -72,7 +72,7 @@ func (suite *CapabilityTestSuite) TestInitializeMemStore() {
 
 	// Mock the first transaction getting capability and subsequently failing
 	// by using a cached context and discarding all cached writes.
-	cacheCtx, _ := ctx.CacheContext()
+	cacheCtx := ctx.CloneMultiStore()
 	_, ok := newSk1.GetCapability(cacheCtx, "transfer")
 	suite.Require().True(ok)
 
