@@ -56,6 +56,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 ### Features
 
 * (x/groups) [#14879](https://github.com/cosmos/cosmos-sdk/pull/14879) Add `Query/Groups` query to get all the groups.
+* (cli) [#]() Make `StartCmd` more customizable.
 
 ### Improvements
 
