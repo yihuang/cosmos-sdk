@@ -25,7 +25,10 @@ require (
 	gotest.tools/v3 v3.5.0
 )
 
-require github.com/hashicorp/go-metrics v0.5.1
+require (
+	github.com/hashicorp/go-metrics v0.5.1
+	github.com/prysmaticlabs/gohashtree v0.0.3-alpha
+)
 
 require (
 	github.com/DataDog/zstd v1.5.5 // indirect
@@ -50,6 +53,7 @@ require (
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/jhump/protoreflect v1.15.2 // indirect
 	github.com/klauspost/compress v1.16.5 // indirect
+	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/linxGnu/grocksdb v1.7.16 // indirect
