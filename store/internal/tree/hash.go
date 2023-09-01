@@ -2,8 +2,8 @@ package tree
 
 import (
 	"crypto/sha256"
-	"hash"
-	"math/bits"
+
+	"github.com/prysmaticlabs/gohashtree"
 )
 
 var (
@@ -14,55 +14,50 @@ var (
 // HashFromByteSlices computes a Merkle tree where the leaves are the byte slice,
 // in the provided order. It follows RFC-6962.
 func HashFromByteSlices(items [][]byte) []byte {
-	return hashFromByteSlices(sha256.New(), items)
+	return hashFromByteSlices(items)
 }
 
-func hashFromByteSlices(sha hash.Hash, items [][]byte) []byte {
-	switch len(items) {
-	case 0:
+func hashFromByteSlices(items [][]byte) []byte {
+	var err error
+
+	if len(items) == 0 {
 		return emptyHash()
-	case 1:
-		return leafHashOpt(sha, items[0])
-	default:
-		k := getSplitPoint(int64(len(items)))
-		left := hashFromByteSlices(sha, items[:k])
-		right := hashFromByteSlices(sha, items[k:])
-		return innerHashOpt(sha, left, right)
 	}
-}
 
-// returns tmhash(0x00 || leaf)
-func leafHashOpt(s hash.Hash, leaf []byte) []byte {
-	s.Reset()
-	s.Write(leafPrefix)
-	s.Write(leaf)
-	return s.Sum(nil)
-}
+	chunks := make([][32]byte, len(items)*2)
+	digests := make([][32]byte, len(items))
+	for i, item := range items {
+		// assume the item is less than 64 bytes
+		copy(chunks[i*2][:], item[:32])
+		copy(chunks[i*2+1][:], item[32:])
+	}
+	if err = gohashtree.Hash(digests, chunks); err != nil {
+		panic(err)
+	}
 
-func innerHashOpt(s hash.Hash, left, right []byte) []byte {
-	s.Reset()
-	s.Write(innerPrefix)
-	s.Write(left)
-	s.Write(right)
-	return s.Sum(nil)
+	// reuse the allocated buffers
+	for len(digests) > 1 {
+		// swap the buffers to hash the prevous digests
+		chunks, digests = digests, chunks
+
+		if len(chunks)%2 == 1 {
+			digests = digests[:len(chunks)/2+1]
+			err = gohashtree.Hash(digests, chunks[:len(chunks)-1])
+			digests[len(digests)-1] = chunks[len(chunks)-1]
+		} else {
+			digests = digests[:len(chunks)/2]
+			err = gohashtree.Hash(digests, chunks)
+		}
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	return digests[0][:]
 }
 
 // returns tmhash(<empty>)
 func emptyHash() []byte {
 	h := sha256.Sum256([]byte{})
 	return h[:]
-}
-
-// getSplitPoint returns the largest power of 2 less than length
-func getSplitPoint(length int64) int64 {
-	if length < 1 {
-		panic("Trying to split a tree with size < 1")
-	}
-	uLength := uint(length)
-	bitlen := bits.Len(uLength)
-	k := int64(1 << uint(bitlen-1))
-	if k == length {
-		k >>= 1
-	}
-	return k
 }
