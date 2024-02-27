@@ -276,6 +276,8 @@ func NewSimApp(
 		tkeys:             tkeys,
 	}
 
+	app.SetTxExecutor(STMTxExecutor(app.GetStoreKeys(), 10))
+
 	app.ParamsKeeper = initParamsKeeper(appCodec, legacyAmino, keys[paramstypes.StoreKey], tkeys[paramstypes.TStoreKey])
 
 	// set the BaseApp's parameter store

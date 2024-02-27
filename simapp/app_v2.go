@@ -220,7 +220,8 @@ func NewSimApp(
 		voteExtHandler := NewVoteExtensionHandler()
 		voteExtHandler.SetHandlers(bApp)
 	}
-	baseAppOptions = append(baseAppOptions, voteExtOp, baseapp.SetOptimisticExecution())
+	txExecutorOp := baseapp.SetTxExecutor(STMTxExecutor(app.GetStoreKeys(), 10))
+	baseAppOptions = append(baseAppOptions, voteExtOp, baseapp.SetOptimisticExecution(), txExecutorOp)
 
 	app.App = appBuilder.Build(db, traceStore, baseAppOptions...)
 
