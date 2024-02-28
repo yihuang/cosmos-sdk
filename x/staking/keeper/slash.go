@@ -255,7 +255,7 @@ func (k Keeper) SlashRedelegation(ctx sdk.Context, srcValidator types.Validator,
 			panic(err)
 		}
 
-		if k.hardForkHeight > ctx.BlockHeight() {
+		if k.hardForkHeight >= ctx.BlockHeight() {
 			// Handle undelegation after redelegation
 			// Prioritize slashing unbondingDelegation than delegation
 			unbondingDelegation, found := k.GetUnbondingDelegation(ctx, sdk.MustAccAddressFromBech32(redelegation.DelegatorAddress), valDstAddr)
