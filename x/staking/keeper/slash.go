@@ -250,15 +250,54 @@ func (k Keeper) SlashRedelegation(ctx sdk.Context, srcValidator types.Validator,
 		slashAmount := slashAmountDec.TruncateInt()
 		totalSlashAmount = totalSlashAmount.Add(slashAmount)
 
+		valDstAddr, err := sdk.ValAddressFromBech32(redelegation.ValidatorDstAddress)
+		if err != nil {
+			panic(err)
+		}
+
+		if k.hardForkHeight >= ctx.BlockHeight() {
+			// Handle undelegation after redelegation
+			// Prioritize slashing unbondingDelegation than delegation
+			unbondingDelegation, found := k.GetUnbondingDelegation(ctx, sdk.MustAccAddressFromBech32(redelegation.DelegatorAddress), valDstAddr)
+			if found {
+				for i, entry := range unbondingDelegation.Entries {
+					// slash with the amount of `slashAmount` if possible, else slash all unbonding token
+					unbondingSlashAmount := math.MinInt(slashAmount, entry.Balance)
+
+					switch {
+					// There's no token to slash
+					case unbondingSlashAmount.IsZero():
+						continue
+					// If unbonding started before this height, stake didn't contribute to infraction
+					case entry.CreationHeight < infractionHeight:
+						continue
+					// Unbonding delegation no longer eligible for slashing, skip it
+					case entry.IsMature(now):
+						continue
+					// Slash the unbonding delegation
+					default:
+						// update remaining slashAmount
+						slashAmount = slashAmount.Sub(unbondingSlashAmount)
+
+						notBondedBurnedAmount = notBondedBurnedAmount.Add(unbondingSlashAmount)
+						entry.Balance = entry.Balance.Sub(unbondingSlashAmount)
+						unbondingDelegation.Entries[i] = entry
+						k.SetUnbondingDelegation(ctx, unbondingDelegation)
+					}
+				}
+			}
+
+			if slashAmount.IsZero() {
+				continue
+			}
+		}
+
+		// Slash the moved delegation
+
 		// Unbond from target validator
 		sharesToUnbond := slashFactor.Mul(entry.SharesDst)
 		if sharesToUnbond.IsZero() {
 			continue
-		}
-
-		valDstAddr, err := sdk.ValAddressFromBech32(redelegation.ValidatorDstAddress)
-		if err != nil {
-			panic(err)
 		}
 
 		delegatorAddress := sdk.MustAccAddressFromBech32(redelegation.DelegatorAddress)

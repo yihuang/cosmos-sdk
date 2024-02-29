@@ -27,12 +27,15 @@ type Keeper struct {
 	bankKeeper types.BankKeeper
 	hooks      types.StakingHooks
 	paramstore paramtypes.Subspace
+
+	hardForkHeight int64
 }
 
 // NewKeeper creates a new staking Keeper instance
 func NewKeeper(
 	cdc codec.BinaryCodec, key storetypes.StoreKey, ak types.AccountKeeper, bk types.BankKeeper,
 	ps paramtypes.Subspace,
+	hardForkHeight int64,
 ) Keeper {
 	// set KeyTable if it has not already been set
 	if !ps.HasKeyTable() {
@@ -55,6 +58,8 @@ func NewKeeper(
 		bankKeeper: bk,
 		paramstore: ps,
 		hooks:      nil,
+
+		hardForkHeight: hardForkHeight,
 	}
 }
 
