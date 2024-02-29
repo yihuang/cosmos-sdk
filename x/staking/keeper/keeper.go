@@ -28,14 +28,16 @@ type Keeper struct {
 	hooks      types.StakingHooks
 	paramstore paramtypes.Subspace
 
-	hardForkHeight int64
+	// forkEnabledFunc returns true if the forked logic should be enabled.
+	// see: https://github.com/advisories/GHSA-86h5-xcpx-cfqc
+	forkEnabledFunc func(sdk.Context) bool
 }
 
 // NewKeeper creates a new staking Keeper instance
 func NewKeeper(
 	cdc codec.BinaryCodec, key storetypes.StoreKey, ak types.AccountKeeper, bk types.BankKeeper,
 	ps paramtypes.Subspace,
-	hardForkHeight int64,
+	forkEnabledFunc func(sdk.Context) bool,
 ) Keeper {
 	// set KeyTable if it has not already been set
 	if !ps.HasKeyTable() {
@@ -51,6 +53,12 @@ func NewKeeper(
 		panic(fmt.Sprintf("%s module account has not been set", types.NotBondedPoolName))
 	}
 
+	if forkEnabledFunc == nil {
+		forkEnabledFunc = func(sdk.Context) bool {
+			return false
+		}
+	}
+
 	return Keeper{
 		storeKey:   key,
 		cdc:        cdc,
@@ -59,7 +67,7 @@ func NewKeeper(
 		paramstore: ps,
 		hooks:      nil,
 
-		hardForkHeight: hardForkHeight,
+		forkEnabledFunc: forkEnabledFunc,
 	}
 }
 
