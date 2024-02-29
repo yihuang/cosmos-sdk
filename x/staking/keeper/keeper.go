@@ -53,6 +53,12 @@ func NewKeeper(
 		panic(fmt.Sprintf("%s module account has not been set", types.NotBondedPoolName))
 	}
 
+	if forkEnabledFunc == nil {
+		forkEnabledFunc = func(sdk.Context) bool {
+			return false
+		}
+	}
+
 	return Keeper{
 		storeKey:   key,
 		cdc:        cdc,

@@ -255,7 +255,7 @@ func (k Keeper) SlashRedelegation(ctx sdk.Context, srcValidator types.Validator,
 			panic(err)
 		}
 
-		if k.forkEnabledFunc != nil && k.forkEnabledFunc(ctx) {
+		if k.forkEnabledFunc(ctx) {
 			// Handle undelegation after redelegation
 			// Prioritize slashing unbondingDelegation than delegation
 			unbondingDelegation, found := k.GetUnbondingDelegation(ctx, sdk.MustAccAddressFromBech32(redelegation.DelegatorAddress), valDstAddr)
