@@ -657,7 +657,8 @@ func (app *BaseApp) getContextForTx(mode execMode, txBytes []byte) sdk.Context {
 		panic(fmt.Sprintf("state is nil for mode %v", mode))
 	}
 	ctx := modeState.Context().
-		WithTxBytes(txBytes)
+		WithTxBytes(txBytes).
+		WithGasMeter(storetypes.NewInfiniteGasMeter())
 	// WithVoteInfos(app.voteInfos) // TODO: identify if this is needed
 
 	ctx = ctx.WithConsensusParams(app.GetConsensusParams(ctx))
@@ -843,30 +844,6 @@ func (app *BaseApp) runTxWithMultiStore(mode execMode, txBytes []byte, txMultiSt
 		gInfo = sdk.GasInfo{GasWanted: gasWanted, GasUsed: ctx.GasMeter().GasConsumed()}
 	}()
 
-	blockGasConsumed := false
-
-	// consumeBlockGas makes sure block gas is consumed at most once. It must
-	// happen after tx processing, and must be executed even if tx processing
-	// fails. Hence, it's execution is deferred.
-	consumeBlockGas := func() {
-		if !blockGasConsumed {
-			blockGasConsumed = true
-			ctx.BlockGasMeter().ConsumeGas(
-				ctx.GasMeter().GasConsumedToLimit(), "block gas meter",
-			)
-		}
-	}
-
-	// If BlockGasMeter() panics it will be caught by the above recover and will
-	// return an error - in any case BlockGasMeter will consume gas past the limit.
-	//
-	// NOTE: consumeBlockGas must exist in a separate defer function from the
-	// general deferred recovery function to recover from consumeBlockGas as it'll
-	// be executed first (deferred statements are executed as stack).
-	if mode == execModeFinalize {
-		defer consumeBlockGas()
-	}
-
 	tx, err := app.txDecoder(txBytes)
 	if err != nil {
 		return sdk.GasInfo{}, nil, nil, err
@@ -973,9 +950,6 @@ func (app *BaseApp) runTxWithMultiStore(mode execMode, txBytes []byte, txMultiSt
 
 	if err == nil {
 		if mode == execModeFinalize {
-			// When block gas exceeds, it'll panic and won't commit the cached store.
-			consumeBlockGas()
-
 			msCache.Write()
 		}
 
