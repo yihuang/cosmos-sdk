@@ -46,6 +46,9 @@ type GStore[V any] struct {
 	sortedCache   btree.BTree[V] // always ascending sorted
 	parent        types.GKVStore[V]
 
+	// if disableCache is true, only buffers writes but not cache reads
+	disableCache bool
+
 	// isZero is a function that returns true if the value is considered "zero", for []byte and pointers the zero value
 	// is `nil`, zero value is not allowed to set to a key, and it's returned if the key is not found.
 	isZero    func(V) bool
@@ -66,6 +69,10 @@ func NewGStore[V any](parent types.GKVStore[V], isZero func(V) bool, valueLen fu
 	}
 }
 
+func (store *GStore[V]) DisableCache() {
+	store.disableCache = true
+}
+
 // GetStoreType implements Store.
 func (store *GStore[V]) GetStoreType() types.StoreType {
 	return store.parent.GetStoreType()
@@ -73,19 +80,26 @@ func (store *GStore[V]) GetStoreType() types.StoreType {
 
 // Get implements types.KVStore.
 func (store *GStore[V]) Get(key []byte) (value V) {
-	store.mtx.Lock()
-	defer store.mtx.Unlock()
-
 	types.AssertValidKey(key)
+
+	store.mtx.Lock()
 
 	cacheValue, ok := store.cache[conv.UnsafeBytesToStr(key)]
 	if !ok {
+		store.mtx.Unlock()
+
 		value = store.parent.Get(key)
+		if store.disableCache {
+			return value
+		}
+
+		store.mtx.Lock()
 		store.setCacheValue(key, value, false)
 	} else {
 		value = cacheValue.value
 	}
 
+	store.mtx.Unlock()
 	return value
 }
 
@@ -415,6 +429,12 @@ func (store *GStore[V]) clearUnsortedCacheSubset(unsorted []*kvPair[V], sortStat
 // A `nil` value means a deletion.
 func (store *GStore[V]) setCacheValue(key []byte, value V, dirty bool) {
 	keyStr := conv.UnsafeBytesToStr(key)
+	if !dirty {
+		// only set if don't exists
+		if _, ok := store.cache[keyStr]; ok {
+			return
+		}
+	}
 	store.cache[keyStr] = &cValue[V]{
 		value: value,
 		dirty: dirty,
