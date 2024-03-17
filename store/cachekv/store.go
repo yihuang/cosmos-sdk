@@ -29,6 +29,9 @@ type Store struct {
 	unsortedCache *xsync.Map
 	sortedCache   internal.BTree // always ascending sorted
 	parent        types.KVStore
+
+	// if disableCache is true, only buffers writes but not cache reads
+	disableCache bool
 }
 
 var _ types.CacheKVStore = (*Store)(nil)
@@ -43,6 +46,10 @@ func NewStore(parent types.KVStore) *Store {
 	}
 }
 
+func (store *Store) DisableCache() {
+	store.disableCache = true
+}
+
 // GetStoreType implements Store.
 func (store *Store) GetStoreType() types.StoreType {
 	return store.parent.GetStoreType()
@@ -55,6 +62,9 @@ func (store *Store) Get(key []byte) (value []byte) {
 	cacheValue, ok := store.cache.Load(conv.UnsafeBytesToStr(key))
 	if !ok {
 		value = store.parent.Get(key)
+		if store.disableCache {
+			return value
+		}
 		store.setCacheValue(key, value, false)
 	} else {
 		value = cacheValue.(*cValue).value

@@ -72,6 +72,26 @@ func NewStore(
 	return NewFromKVStore(dbadapter.Store{DB: db}, stores, keys, traceWriter, traceContext)
 }
 
+func NewStoreUnCached(
+	db dbm.DB, stores map[types.StoreKey]types.CacheWrapper, keys map[string]types.StoreKey,
+	traceWriter io.Writer, traceContext types.TraceContext,
+) Store {
+	store := NewFromKVStore(dbadapter.Store{DB: db}, stores, keys, traceWriter, traceContext)
+
+	// disable cache for each store
+	if cstore, ok := store.db.(*cachekv.Store); ok {
+		cstore.DisableCache()
+	}
+
+	for _, v := range store.stores {
+		if cstore, ok := v.(*cachekv.Store); ok {
+			cstore.DisableCache()
+		}
+	}
+
+	return store
+}
+
 func newCacheMultiStoreFromCMS(cms Store) Store {
 	stores := make(map[types.StoreKey]types.CacheWrapper)
 	for k, v := range cms.stores {
