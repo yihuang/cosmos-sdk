@@ -300,12 +300,19 @@ func (pc *ProtoCodec) InterfaceRegistry() types.InterfaceRegistry {
 }
 
 func (pc ProtoCodec) GetMsgAnySigners(msg *types.Any) ([][]byte, proto.Message, error) {
-	msgv2, err := anyutil.Unpack(&anypb.Any{
-		TypeUrl: msg.TypeUrl,
-		Value:   msg.Value,
-	}, pc.interfaceRegistry, nil)
-	if err != nil {
-		return nil, nil, err
+	var (
+		err   error
+		msgv2 proto.Message
+	)
+	msgv2, _ = msg.GetCachedValue().(proto.Message)
+	if msgv2 == nil {
+		msgv2, err = anyutil.Unpack(&anypb.Any{
+			TypeUrl: msg.TypeUrl,
+			Value:   msg.Value,
+		}, pc.interfaceRegistry, nil)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	signers, err := pc.interfaceRegistry.SigningContext().GetSigners(msgv2)
