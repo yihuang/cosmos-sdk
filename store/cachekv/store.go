@@ -62,7 +62,6 @@ func NewGStore[V any](parent types.GKVStore[V], isZero func(V) bool, valueLen fu
 	return &GStore[V]{
 		cache:         make(map[string]*cValue[V]),
 		unsortedCache: make(map[string]struct{}),
-		sortedCache:   btree.NewBTree[V](),
 		parent:        parent,
 		isZero:        isZero,
 		valueLen:      valueLen,
@@ -430,7 +429,7 @@ func (store *GStore[V]) clearUnsortedCacheSubset(unsorted []*kvPair[V], sortStat
 func (store *GStore[V]) setCacheValue(key []byte, value V, dirty bool) {
 	keyStr := conv.UnsafeBytesToStr(key)
 	if !dirty {
-		// only set if don't exists
+		// only set if don't exists, so we don't override dirty value with un-dirty one.
 		if _, ok := store.cache[keyStr]; ok {
 			return
 		}
