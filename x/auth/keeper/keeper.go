@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"cosmossdk.io/collections"
 	"cosmossdk.io/collections/indexes"
@@ -209,6 +210,10 @@ func (ak AccountKeeper) ValidatePermissions(macc sdk.ModuleAccountI) error {
 
 // GetModuleAddress returns an address based on the module name
 func (ak AccountKeeper) GetModuleAddress(moduleName string) sdk.AccAddress {
+	if strings.HasPrefix(moduleName, types.TempFeeCollectorPrefix) {
+		return types.NewModuleAddress(moduleName)
+	}
+
 	permAddr, ok := ak.permAddrs[moduleName]
 	if !ok {
 		return nil
@@ -219,6 +224,12 @@ func (ak AccountKeeper) GetModuleAddress(moduleName string) sdk.AccAddress {
 
 // GetModuleAddressAndPermissions returns an address and permissions based on the module name
 func (ak AccountKeeper) GetModuleAddressAndPermissions(moduleName string) (addr sdk.AccAddress, permissions []string) {
+	if strings.HasPrefix(moduleName, types.TempFeeCollectorPrefix) {
+		// share the same permissions as types.FeeCollectorName
+		_, permissions := ak.GetModuleAddressAndPermissions(types.FeeCollectorName)
+		return types.NewModuleAddress(moduleName), permissions
+	}
+
 	permAddr, ok := ak.permAddrs[moduleName]
 	if !ok {
 		return addr, permissions

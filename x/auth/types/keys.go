@@ -13,6 +13,9 @@ const (
 
 	// FeeCollectorName the root string for the fee collector account address
 	FeeCollectorName = "fee_collector"
+
+	// TempFeeCollectorPrefix the prefix for per-tx temporary fee collector module account
+	TempFeeCollectorPrefix = FeeCollectorName + "-"
 )
 
 var (
