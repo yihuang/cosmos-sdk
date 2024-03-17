@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"cosmossdk.io/store/cachekv/internal"
+	"github.com/puzpuzpuz/xsync/v3"
 )
 
 func BenchmarkLargeUnsortedMisses(b *testing.B) {
@@ -22,18 +23,18 @@ func BenchmarkLargeUnsortedMisses(b *testing.B) {
 }
 
 func generateStore() *Store {
-	cache := map[string]*cValue{}
-	unsorted := map[string]struct{}{}
+	cache := xsync.NewMap()
+	unsorted := xsync.NewMap()
 	for i := 0; i < 5000; i++ {
 		key := "A" + strconv.Itoa(i)
-		unsorted[key] = struct{}{}
-		cache[key] = &cValue{}
+		unsorted.Store(key, struct{}{})
+		cache.Store(key, &cValue{})
 	}
 
 	for i := 0; i < 5000; i++ {
 		key := "Z" + strconv.Itoa(i)
-		unsorted[key] = struct{}{}
-		cache[key] = &cValue{}
+		unsorted.Store(key, struct{}{})
+		cache.Store(key, &cValue{})
 	}
 
 	return &Store{
