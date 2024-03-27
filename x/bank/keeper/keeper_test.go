@@ -130,7 +130,8 @@ func TestKeeperTestSuite(t *testing.T) {
 
 func (suite *KeeperTestSuite) SetupTest() {
 	key := storetypes.NewKVStoreKey(banktypes.StoreKey)
-	testCtx := testutil.DefaultContextWithDB(suite.T(), key, storetypes.NewTransientStoreKey("transient_test"))
+	okey := storetypes.NewObjectStoreKey(banktypes.ObjectStoreKey)
+	testCtx := testutil.DefaultContextWithObjectStore(suite.T(), key, storetypes.NewTransientStoreKey("transient_test"), okey)
 	ctx := testCtx.Ctx.WithBlockHeader(cmtproto.Header{Time: cmttime.Now()})
 	encCfg := moduletestutil.MakeTestEncodingConfig()
 
@@ -145,6 +146,7 @@ func (suite *KeeperTestSuite) SetupTest() {
 	suite.bankKeeper = keeper.NewBaseKeeper(
 		encCfg.Codec,
 		storeService,
+		okey,
 		suite.authKeeper,
 		map[string]bool{accAddrs[4].String(): true},
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
@@ -194,6 +196,11 @@ func (suite *KeeperTestSuite) mockSendCoinsFromAccountToModule(acc *authtypes.Ba
 	suite.authKeeper.EXPECT().GetModuleAccount(suite.ctx, moduleAcc.Name).Return(moduleAcc)
 	suite.authKeeper.EXPECT().GetAccount(suite.ctx, acc.GetAddress()).Return(acc)
 	suite.authKeeper.EXPECT().HasAccount(suite.ctx, moduleAcc.GetAddress()).Return(true)
+}
+
+func (suite *KeeperTestSuite) mockSendCoinsFromAccountToModuleVirtual(acc *authtypes.BaseAccount, moduleAcc *authtypes.ModuleAccount) {
+	suite.authKeeper.EXPECT().GetModuleAccount(suite.ctx, moduleAcc.Name).Return(moduleAcc)
+	suite.authKeeper.EXPECT().GetAccount(suite.ctx, acc.GetAddress()).Return(acc)
 }
 
 func (suite *KeeperTestSuite) mockSendCoins(ctx context.Context, sender sdk.AccountI, receiver sdk.AccAddress) {
@@ -316,6 +323,7 @@ func (suite *KeeperTestSuite) TestGetAuthority() {
 		return keeper.NewBaseKeeper(
 			moduletestutil.MakeTestEncodingConfig().Codec,
 			storeService,
+			nil,
 			suite.authKeeper,
 			nil,
 			authority,
@@ -630,6 +638,27 @@ func (suite *KeeperTestSuite) TestSendCoinsNewAccount() {
 	updatedAcc1Bal := balances.Sub(sendAmt...)
 	require.Len(acc1Balances, len(updatedAcc1Bal))
 	require.Equal(acc1Balances, updatedAcc1Bal)
+}
+
+func (suite *KeeperTestSuite) TestSendCoinsVirtual() {
+	ctx := suite.ctx
+	require := suite.Require()
+	keeper := suite.bankKeeper
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	acc0 := authtypes.NewBaseAccountWithAddress(accAddrs[0])
+
+	balances := sdk.NewCoins(newFooCoin(100), newBarCoin(50))
+	suite.mockFundAccount(accAddrs[0])
+	require.NoError(banktestutil.FundAccount(ctx, suite.bankKeeper, accAddrs[0], balances))
+
+	sendAmt := sdk.NewCoins(newFooCoin(50), newBarCoin(50))
+	suite.mockSendCoinsFromAccountToModuleVirtual(acc0, burnerAcc)
+	require.NoError(
+		keeper.SendCoinsFromAccountToModuleVirtual(sdkCtx, accAddrs[0], authtypes.Burner, sendAmt),
+	)
+
+	suite.authKeeper.EXPECT().HasAccount(suite.ctx, burnerAcc.GetAddress()).Return(true)
+	require.NoError(keeper.CreditVirtualAccounts(ctx))
 }
 
 func (suite *KeeperTestSuite) TestInputOutputNewAccount() {
