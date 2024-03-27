@@ -19,7 +19,7 @@ const (
 	RouterKey = ModuleName
 
 	// ObjectStoreKey defines the store name for the object store
-	ObjectStoreKey = "obj_" + ModuleName
+	ObjectStoreKey = "object:" + ModuleName
 )
 
 // KVStore keys

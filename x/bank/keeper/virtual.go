@@ -182,7 +182,7 @@ func (k BaseSendKeeper) CreditVirtualAccounts(ctx context.Context) error {
 	store := sdk.UnwrapSDKContext(ctx).ObjectStore(k.objStoreKey)
 
 	var toAddr sdk.AccAddress
-	var sum sdk.MapCoins
+	sum := sdk.NewMapCoins(nil)
 	flushCurrentAddr := func() {
 		if len(sum) == 0 {
 			// nothing to flush
