@@ -14,6 +14,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
+// SendCoinsFromAccountToModuleVirtual sends coins from account to a virtual module account.
 func (k BaseSendKeeper) SendCoinsFromAccountToModuleVirtual(
 	ctx context.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins,
 ) error {
@@ -22,13 +23,29 @@ func (k BaseSendKeeper) SendCoinsFromAccountToModuleVirtual(
 		return errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", recipientModule)
 	}
 
-	return k.SendCoinsVirtual(ctx, senderAddr, recipientAcc.GetAddress(), amt)
+	return k.SendCoinsToVirtual(ctx, senderAddr, recipientAcc.GetAddress(), amt)
 }
 
-// SendCoinsVirtual accumulate the recipient's coins in a per-transaction transient state,
+// SendCoinsFromModuleToAccountVirtual sends coins from account to a virtual module account.
+func (k BaseSendKeeper) SendCoinsFromModuleToAccountVirtual(
+	ctx context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins,
+) error {
+	senderAddr := k.ak.GetModuleAddress(senderModule)
+	if senderAddr == nil {
+		panic(errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", senderModule))
+	}
+
+	if k.BlockedAddr(recipientAddr) {
+		return errorsmod.Wrapf(sdkerrors.ErrUnauthorized, "%s is not allowed to receive funds", recipientAddr)
+	}
+
+	return k.SendCoinsFromVirtual(ctx, senderAddr, recipientAddr, amt)
+}
+
+// SendCoinsToVirtual accumulate the recipient's coins in a per-transaction transient state,
 // which are sumed up and added to the real account at the end of block.
 // Events are emiited the same as normal send.
-func (k BaseSendKeeper) SendCoinsVirtual(ctx context.Context, fromAddr, toAddr sdk.AccAddress, amt sdk.Coins) error {
+func (k BaseSendKeeper) SendCoinsToVirtual(ctx context.Context, fromAddr, toAddr sdk.AccAddress, amt sdk.Coins) error {
 	var err error
 	err = k.subUnlockedCoins(ctx, fromAddr, amt)
 	if err != nil {
@@ -41,6 +58,53 @@ func (k BaseSendKeeper) SendCoinsVirtual(ctx context.Context, fromAddr, toAddr s
 	}
 
 	k.addVirtualCoins(ctx, toAddr, amt)
+
+	// bech32 encoding is expensive! Only do it once for fromAddr
+	fromAddrString := fromAddr.String()
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	sdkCtx.EventManager().EmitEvents(sdk.Events{
+		sdk.NewEvent(
+			types.EventTypeTransfer,
+			sdk.NewAttribute(types.AttributeKeyRecipient, toAddr.String()),
+			sdk.NewAttribute(types.AttributeKeySender, fromAddrString),
+			sdk.NewAttribute(sdk.AttributeKeyAmount, amt.String()),
+		),
+		sdk.NewEvent(
+			sdk.EventTypeMessage,
+			sdk.NewAttribute(types.AttributeKeySender, fromAddrString),
+		),
+	})
+
+	return nil
+}
+
+// SendCoinsFromVirtual deduct coins from virtual from account and send to recipient account.
+func (k BaseSendKeeper) SendCoinsFromVirtual(ctx context.Context, fromAddr, toAddr sdk.AccAddress, amt sdk.Coins) error {
+	var err error
+	err = k.subVirtualCoins(ctx, fromAddr, amt)
+	if err != nil {
+		return err
+	}
+
+	toAddr, err = k.sendRestriction.apply(ctx, fromAddr, toAddr, amt)
+	if err != nil {
+		return err
+	}
+
+	err = k.addCoins(ctx, toAddr, amt)
+	if err != nil {
+		return err
+	}
+
+	// Create account if recipient does not exist.
+	//
+	// NOTE: This should ultimately be removed in favor a more flexible approach
+	// such as delegated fee messages.
+	accExists := k.ak.HasAccount(ctx, toAddr)
+	if !accExists {
+		defer telemetry.IncrCounter(1, "new", "account")
+		k.ak.SetAccount(ctx, k.ak.NewAccountWithAddress(ctx, toAddr))
+	}
 
 	// bech32 encoding is expensive! Only do it once for fromAddr
 	fromAddrString := fromAddr.String()
@@ -76,6 +140,40 @@ func (k BaseSendKeeper) addVirtualCoins(ctx context.Context, addr sdk.AccAddress
 	}
 	coins = coins.Add(amt...)
 	store.Set(key, coins)
+}
+
+func (k BaseSendKeeper) subVirtualCoins(ctx context.Context, addr sdk.AccAddress, amt sdk.Coins) error {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	store := sdkCtx.ObjectStore(k.objStoreKey)
+
+	key := make([]byte, len(addr)+8)
+	copy(key, addr)
+	binary.BigEndian.PutUint64(key[len(addr):], uint64(sdkCtx.TxIndex()))
+
+	value := store.Get(key)
+	if value == nil {
+		return errorsmod.Wrapf(
+			sdkerrors.ErrInsufficientFunds,
+			"spendable balance 0 is smaller than %s",
+			amt,
+		)
+	}
+	spendable := value.(sdk.Coins)
+	balance, hasNeg := spendable.SafeSub(amt...)
+	if hasNeg {
+		return errorsmod.Wrapf(
+			sdkerrors.ErrInsufficientFunds,
+			"spendable balance %s is smaller than %s",
+			spendable, amt,
+		)
+	}
+	if balance.IsZero() {
+		store.Delete(key)
+	} else {
+		store.Set(key, balance)
+	}
+
+	return nil
 }
 
 // CreditVirtualAccounts sum up the transient coins and add them to the real account,
