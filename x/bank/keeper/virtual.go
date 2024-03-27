@@ -84,14 +84,15 @@ func (k BaseSendKeeper) CreditVirtualAccounts(ctx context.Context) error {
 	store := sdk.UnwrapSDKContext(ctx).ObjectStore(k.objStoreKey)
 
 	var toAddr sdk.AccAddress
-	var sum sdk.Coins
+	var sum sdk.MapCoins
 	flushCurrentAddr := func() {
-		if sum.IsZero() {
+		if len(sum) == 0 {
+			// nothing to flush
 			return
 		}
 
-		k.addCoins(ctx, toAddr, sum)
-		sum = sum[:0]
+		k.addCoins(ctx, toAddr, sum.ToCoins())
+		clear(sum)
 
 		// Create account if recipient does not exist.
 		//
@@ -117,9 +118,7 @@ func (k BaseSendKeeper) CreditVirtualAccounts(ctx context.Context) error {
 			toAddr = addr
 		}
 
-		coins := it.Value().(sdk.Coins)
-		// TODO more efficient coins sum
-		sum = sum.Add(coins...)
+		sum.Add(it.Value().(sdk.Coins)...)
 	}
 
 	flushCurrentAddr()
