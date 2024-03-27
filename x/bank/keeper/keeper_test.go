@@ -19,6 +19,7 @@ import (
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/log"
 	"cosmossdk.io/math"
+	sdkmath "cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
@@ -201,6 +202,11 @@ func (suite *KeeperTestSuite) mockSendCoinsFromAccountToModule(acc *authtypes.Ba
 func (suite *KeeperTestSuite) mockSendCoinsFromAccountToModuleVirtual(acc *authtypes.BaseAccount, moduleAcc *authtypes.ModuleAccount) {
 	suite.authKeeper.EXPECT().GetModuleAccount(suite.ctx, moduleAcc.Name).Return(moduleAcc)
 	suite.authKeeper.EXPECT().GetAccount(suite.ctx, acc.GetAddress()).Return(acc)
+}
+
+func (suite *KeeperTestSuite) mockSendCoinsFromModuleToAccountVirtual(moduleAcc *authtypes.ModuleAccount, accAddr sdk.AccAddress) {
+	suite.authKeeper.EXPECT().GetModuleAddress(moduleAcc.Name).Return(moduleAcc.GetAddress())
+	suite.authKeeper.EXPECT().HasAccount(suite.ctx, accAddr).Return(true)
 }
 
 func (suite *KeeperTestSuite) mockSendCoins(ctx context.Context, sender sdk.AccountI, receiver sdk.AccAddress) {
@@ -646,19 +652,30 @@ func (suite *KeeperTestSuite) TestSendCoinsVirtual() {
 	keeper := suite.bankKeeper
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	acc0 := authtypes.NewBaseAccountWithAddress(accAddrs[0])
+	feeDenom1 := "fee1"
+	feeDenom2 := "fee2"
 
-	balances := sdk.NewCoins(newFooCoin(100), newBarCoin(50))
+	balances := sdk.NewCoins(sdk.NewInt64Coin(feeDenom1, 100), sdk.NewInt64Coin(feeDenom2, 100))
 	suite.mockFundAccount(accAddrs[0])
 	require.NoError(banktestutil.FundAccount(ctx, suite.bankKeeper, accAddrs[0], balances))
 
-	sendAmt := sdk.NewCoins(newFooCoin(50), newBarCoin(50))
+	sendAmt := sdk.NewCoins(sdk.NewInt64Coin(feeDenom1, 50), sdk.NewInt64Coin(feeDenom2, 50))
 	suite.mockSendCoinsFromAccountToModuleVirtual(acc0, burnerAcc)
 	require.NoError(
 		keeper.SendCoinsFromAccountToModuleVirtual(sdkCtx, accAddrs[0], authtypes.Burner, sendAmt),
 	)
 
+	refundAmt := sdk.NewCoins(sdk.NewInt64Coin(feeDenom1, 25), sdk.NewInt64Coin(feeDenom2, 25))
+	suite.mockSendCoinsFromModuleToAccountVirtual(burnerAcc, accAddrs[0])
+	require.NoError(
+		keeper.SendCoinsFromModuleToAccountVirtual(sdkCtx, authtypes.Burner, accAddrs[0], refundAmt),
+	)
+
 	suite.authKeeper.EXPECT().HasAccount(suite.ctx, burnerAcc.GetAddress()).Return(true)
 	require.NoError(keeper.CreditVirtualAccounts(ctx))
+
+	require.Equal(sdkmath.NewInt(25), keeper.GetBalance(suite.ctx, burnerAcc.GetAddress(), feeDenom1).Amount)
+	require.Equal(sdkmath.NewInt(25), keeper.GetBalance(suite.ctx, burnerAcc.GetAddress(), feeDenom2).Amount)
 }
 
 func (suite *KeeperTestSuite) TestInputOutputNewAccount() {
