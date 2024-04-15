@@ -509,6 +509,11 @@ func (rs *Store) Commit() types.CommitID {
 		)
 	}
 
+	// debug print the storeInfos
+	for _, si := range rs.lastCommitInfo.StoreInfos {
+		fmt.Println("debug commit info", si.Name, hex.EncodeToString(si.CommitId.Hash))
+	}
+
 	return types.CommitID{
 		Version: version,
 		Hash:    rs.lastCommitInfo.Hash(),
@@ -545,7 +550,7 @@ func (rs *Store) WorkingHash() []byte {
 
 	// debug print the storeInfos
 	for _, si := range storeInfos {
-		fmt.Println("debug commit info", si.Name, hex.EncodeToString(si.CommitId.Hash))
+		fmt.Println("[working hash]debug commit info", si.Name, hex.EncodeToString(si.CommitId.Hash))
 	}
 
 	return types.CommitInfo{StoreInfos: storeInfos}.Hash()
