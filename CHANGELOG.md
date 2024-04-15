@@ -52,6 +52,10 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 * [#261](https://github.com/crypto-org-chain/cosmos-sdk/pull/261) `ctx.BlockHeader` don't do protobuf deep copy, shallow copy seems enough, reduce scope of mutex in `PriorityNonceMempool.Remove`.
 
+### Bug Fixes
+
+* (x/bank) [#20028](https://github.com/cosmos/cosmos-sdk/pull/20028) Align query with multi denoms for send-enabled.
+
 ## [Unreleased-Upstream]
 
 ### Bug Fixes
