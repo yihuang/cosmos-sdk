@@ -2,6 +2,7 @@ package rootmulti
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -541,6 +542,11 @@ func (rs *Store) WorkingHash() []byte {
 	sort.SliceStable(storeInfos, func(i, j int) bool {
 		return storeInfos[i].Name < storeInfos[j].Name
 	})
+
+	// debug print the storeInfos
+	for _, si := range storeInfos {
+		fmt.Println(si.Name, hex.EncodeToString(si.CommitId.Hash))
+	}
 
 	return types.CommitInfo{StoreInfos: storeInfos}.Hash()
 }
