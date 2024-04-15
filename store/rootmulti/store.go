@@ -545,7 +545,7 @@ func (rs *Store) WorkingHash() []byte {
 
 	// debug print the storeInfos
 	for _, si := range storeInfos {
-		fmt.Println(si.Name, hex.EncodeToString(si.CommitId.Hash))
+		fmt.Println("debug commit info", si.Name, hex.EncodeToString(si.CommitId.Hash))
 	}
 
 	return types.CommitInfo{StoreInfos: storeInfos}.Hash()
