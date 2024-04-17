@@ -52,6 +52,7 @@ type Context struct {
 	voteInfo             []abci.VoteInfo
 	gasMeter             storetypes.GasMeter
 	blockGasMeter        storetypes.GasMeter
+	dontConsumeGas       bool // when true, we don't create gaskv.Store wrapper
 	checkTx              bool
 	recheckTx            bool // if recheckTx == true, then checkTx must also be true
 	execMode             ExecMode
@@ -91,6 +92,7 @@ func (c Context) Logger() log.Logger                            { return c.logge
 func (c Context) VoteInfos() []abci.VoteInfo                    { return c.voteInfo }
 func (c Context) GasMeter() storetypes.GasMeter                 { return c.gasMeter }
 func (c Context) BlockGasMeter() storetypes.GasMeter            { return c.blockGasMeter }
+func (c Context) DontConsumeGas() bool                          { return c.dontConsumeGas }
 func (c Context) IsCheckTx() bool                               { return c.checkTx }
 func (c Context) IsReCheckTx() bool                             { return c.recheckTx }
 func (c Context) ExecMode() ExecMode                            { return c.execMode }
@@ -230,6 +232,11 @@ func (c Context) WithLogger(logger log.Logger) Context {
 // WithVoteInfos returns a Context with an updated consensus VoteInfo.
 func (c Context) WithVoteInfos(voteInfo []abci.VoteInfo) Context {
 	c.voteInfo = voteInfo
+	return c
+}
+
+func (c Context) WithDontConsumeGas(dontConsumeGas bool) Context {
+	c.dontConsumeGas = dontConsumeGas
 	return c
 }
 
@@ -376,17 +383,29 @@ func (c Context) Value(key interface{}) interface{} {
 
 // KVStore fetches a KVStore from the MultiStore.
 func (c Context) KVStore(key storetypes.StoreKey) storetypes.KVStore {
-	return gaskv.NewStore(c.ms.GetKVStore(key), c.gasMeter, c.kvGasConfig)
+	store := c.ms.GetKVStore(key)
+	if c.dontConsumeGas {
+		return store
+	}
+	return gaskv.NewStore(store, c.gasMeter, c.kvGasConfig)
 }
 
 // TransientStore fetches a TransientStore from the MultiStore.
 func (c Context) TransientStore(key storetypes.StoreKey) storetypes.KVStore {
-	return gaskv.NewStore(c.ms.GetKVStore(key), c.gasMeter, c.transientKVGasConfig)
+	store := c.ms.GetKVStore(key)
+	if c.dontConsumeGas {
+		return store
+	}
+	return gaskv.NewStore(store, c.gasMeter, c.transientKVGasConfig)
 }
 
 // ObjectStore fetches an object store from the MultiStore,
 func (c Context) ObjectStore(key storetypes.StoreKey) storetypes.ObjKVStore {
-	return gaskv.NewObjStore(c.ms.GetObjKVStore(key), c.gasMeter, c.transientKVGasConfig)
+	store := c.ms.GetObjKVStore(key)
+	if c.dontConsumeGas {
+		return store
+	}
+	return gaskv.NewObjStore(store, c.gasMeter, c.transientKVGasConfig)
 }
 
 // CacheContext returns a new Context with the multi-store cached and a new

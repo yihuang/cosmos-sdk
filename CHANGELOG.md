@@ -51,6 +51,7 @@ Ref: https://keepachangelog.com/en/1.0.0/
 ### Improvements
 
 * [#261](https://github.com/crypto-org-chain/cosmos-sdk/pull/261) `ctx.BlockHeader` don't do protobuf deep copy, shallow copy seems enough, reduce scope of mutex in `PriorityNonceMempool.Remove`.
+* (baseapp) [#]() Support `DontConsumeGas` in `Context`, when `true` don't create gaskv.Store wrapper at all.
 
 ### Bug Fixes
 
