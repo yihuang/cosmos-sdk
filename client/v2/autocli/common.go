@@ -32,11 +32,6 @@ func (b *Builder) buildMethodCommandCommon(descriptor protoreflect.MethodDescrip
 		short = fmt.Sprintf("Execute the %s RPC method", descriptor.Name())
 	}
 
-	long := options.Long
-	if long == "" {
-		long = util.DescriptorDocs(descriptor)
-	}
-
 	inputDesc := descriptor.Input()
 	inputType := util.ResolveMessageType(b.TypeResolver, inputDesc)
 
@@ -48,7 +43,7 @@ func (b *Builder) buildMethodCommandCommon(descriptor protoreflect.MethodDescrip
 	cmd := &cobra.Command{
 		SilenceUsage: false,
 		Use:          use,
-		Long:         long,
+		Long:         options.Long,
 		Short:        short,
 		Example:      options.Example,
 		Aliases:      options.Alias,
@@ -180,7 +175,11 @@ func (b *Builder) enhanceCommandCommon(
 // enhanceQuery enhances the provided query command with the autocli commands for a module.
 func enhanceQuery(builder *Builder, moduleName string, cmd *cobra.Command, modOpts *autocliv1.ModuleOptions) error {
 	if queryCmdDesc := modOpts.Query; queryCmdDesc != nil {
-		subCmd := topLevelCmd(cmd.Context(), moduleName, fmt.Sprintf("Querying commands for the %s module", moduleName))
+		short := queryCmdDesc.Short
+		if short == "" {
+			short = fmt.Sprintf("Querying commands for the %s module", moduleName)
+		}
+		subCmd := topLevelCmd(cmd.Context(), moduleName, short)
 		if err := builder.AddQueryServiceCommands(subCmd, queryCmdDesc); err != nil {
 			return err
 		}
@@ -194,7 +193,11 @@ func enhanceQuery(builder *Builder, moduleName string, cmd *cobra.Command, modOp
 // enhanceMsg enhances the provided msg command with the autocli commands for a module.
 func enhanceMsg(builder *Builder, moduleName string, cmd *cobra.Command, modOpts *autocliv1.ModuleOptions) error {
 	if txCmdDesc := modOpts.Tx; txCmdDesc != nil {
-		subCmd := topLevelCmd(cmd.Context(), moduleName, fmt.Sprintf("Transactions commands for the %s module", moduleName))
+		short := txCmdDesc.Short
+		if short == "" {
+			short = fmt.Sprintf("Transactions commands for the %s module", moduleName)
+		}
+		subCmd := topLevelCmd(cmd.Context(), moduleName, short)
 		if err := builder.AddMsgServiceCommands(subCmd, txCmdDesc); err != nil {
 			return err
 		}
