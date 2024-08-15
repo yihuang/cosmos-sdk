@@ -565,7 +565,7 @@ func (rs *Store) CacheMultiStore() types.CacheMultiStore {
 		}
 		stores[k] = store
 	}
-	return cachemulti.NewStore(stores, rs.traceWriter, rs.getTracingContext())
+	return cachemulti.NewFromKVStore(stores, rs.traceWriter, rs.getTracingContext())
 }
 
 // CacheMultiStoreWithVersion is analogous to CacheMultiStore except that it
@@ -627,7 +627,7 @@ func (rs *Store) CacheMultiStoreWithVersion(version int64) (types.CacheMultiStor
 		cachedStores[key] = cacheStore
 	}
 
-	return cachemulti.NewStore(cachedStores, rs.traceWriter, rs.getTracingContext()), nil
+	return cachemulti.NewFromKVStore(cachedStores, rs.traceWriter, rs.getTracingContext()), nil
 }
 
 // GetStore returns a mounted Store for a given StoreKey. If the StoreKey does
@@ -854,7 +854,7 @@ func (rs *Store) Snapshot(height uint64, protoWriter protoio.Writer) error {
 		switch store := rs.GetCommitStore(key).(type) {
 		case *iavl.Store:
 			stores = append(stores, namedStore{name: key.Name(), Store: store})
-		case *transient.Store, *mem.Store:
+		case *transient.Store, *mem.Store, *transient.ObjStore:
 			// Non-persisted stores shouldn't be snapshotted
 			continue
 		default:
