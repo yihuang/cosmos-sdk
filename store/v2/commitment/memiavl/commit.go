@@ -188,12 +188,13 @@ func (c *CommitStore) ReverseIterator(storeKey []byte, version uint64, start, en
 
 // VersionExists only returns true if the version is the latest version
 func (c *CommitStore) VersionExists(v uint64) (bool, error) {
-	v, err := c.GetLatestVersion()
+	v1 := uint64(c.db.SnapshotVersion())
+	v2, err := c.GetLatestVersion()
 	if err != nil {
 		return false, err
 	}
 
-	return v == v, nil
+	return v >= v1 && v <= v2, nil
 }
 
 func (c *CommitStore) Has(storeKey []byte, version uint64, key []byte) (bool, error) {
